@@ -1,0 +1,7 @@
+argparse
+pandas
+numpy
+plotly
+tabulate
+schedule
+setuptools
