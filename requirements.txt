@@ -1,5 +1,6 @@
-pandas
 numpy
+pandas
+pendulum
 plotly
 tabulate
 schedule
