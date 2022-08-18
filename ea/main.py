@@ -2,6 +2,7 @@ import argparse
 from dataclasses import dataclass
 from datetime import datetime
 
+import pendulum
 from xtb.wrapper.xtb_client import APIClient, loginCommand
 
 from ea.misc.logger import logger
@@ -69,8 +70,9 @@ class EARunner:
         if current_trade is not None:
             logger.info(f'Order modification')
             current_stop_loss = current_trade['sl']
+            current_trade_market = ea.get_current_trade_market(current_trade['cmd'])
             candidate_stop_loss = since_last_open_position['high'].max() - trailing_sl \
-                if current_trade['market'] == 'bullish' \
+                if current_trade_market == 'bullish' \
                 else since_last_open_position['low'].min() + trailing_sl
             if current_stop_loss != candidate_stop_loss:
                 modified_order = OrderWrapper(
@@ -84,7 +86,7 @@ class EARunner:
                 logger.info(ea.modifyPosition(modified_order))
         elif len(since_last_open_position) == 1:
             logger.info(f'Order opening')
-            order_input = since_last_open_position.to_dict()
+            order_input = since_last_open_position.to_dict('records')
             order_input['open_position_price_candidate'] = order_input['close']
             logger.info(ea.open_order_on_signal(order_input, ea.prepare_order, ea.execute_tradeTransaction))
         else:
@@ -92,7 +94,8 @@ class EARunner:
 
 
 if __name__ == "__main__":
-    run_at = datetime.now()
+    local_tz = pendulum.timezone('Europe/Warsaw')
+    run_at = datetime.now(tz=local_tz)
     running_at_string = run_at.strftime("%d/%m/%Y %H:%M:%S")
     logger.info(f'Process started at: {running_at_string}')
 
