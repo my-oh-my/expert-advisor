@@ -40,6 +40,10 @@ class ExpertAdvisor:
 
         return self.initial_processing(raw_dataframe, drop_non_closed_candle)
 
+    @staticmethod
+    def get_current_trade_market(cmd: int):
+        return 'bullish' if cmd in [OrderMode.BUY.value, OrderMode.BUY_LIMIT.value, OrderMode.BUY_STOP.value] else 'bearish'
+
     def prepare_order(self, order_input: dict) -> OrderWrapper:
         # order is about to be executed
         order_type = OrderType.OPEN.value
