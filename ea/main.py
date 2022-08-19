@@ -71,9 +71,9 @@ class EARunner:
             logger.info(f'Order modification')
             current_stop_loss = current_trade['sl']
             current_trade_market = ea.get_current_trade_market(current_trade['cmd'])
-            candidate_stop_loss = since_last_open_position['high'].max() - trailing_sl \
+            candidate_stop_loss = max([since_last_open_position['high'].max() - trailing_sl, current_stop_loss])  \
                 if current_trade_market == 'bullish' \
-                else since_last_open_position['low'].min() + trailing_sl
+                else min([since_last_open_position['low'].min() + trailing_sl, current_stop_loss])
             if current_stop_loss != candidate_stop_loss:
                 modified_order = OrderWrapper(
                     order_mode=current_trade['cmd'],
