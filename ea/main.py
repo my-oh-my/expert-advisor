@@ -75,6 +75,7 @@ class EARunner:
                 if current_trade_market == 'bullish' \
                 else min([since_last_open_position['low'].min() + trailing_sl, current_stop_loss])
             if current_stop_loss != candidate_stop_loss:
+                logger.info(f'Modifying order with SL at: {candidate_stop_loss}')
                 modified_order = OrderWrapper(
                     order_mode=current_trade['cmd'],
                     price=current_trade['open_price'],
@@ -86,7 +87,7 @@ class EARunner:
                 logger.info(ea.modifyPosition(modified_order))
         elif len(since_last_open_position) == 1:
             logger.info(f'Order opening')
-            order_input = since_last_open_position.to_dict('records')
+            order_input = since_last_open_position.iloc[0].to_dict()
             order_input['open_position_price_candidate'] = order_input['close']
             logger.info(ea.open_order_on_signal(order_input, ea.prepare_order, ea.execute_tradeTransaction))
         else:
@@ -95,7 +96,7 @@ class EARunner:
 
 if __name__ == "__main__":
     local_tz = pendulum.timezone('Europe/Warsaw')
-    run_at = datetime.now(tz=local_tz)
+    run_at = pendulum.now(tz=local_tz)
     running_at_string = run_at.strftime("%d/%m/%Y %H:%M:%S")
     logger.info(f'Process started at: {running_at_string}')
 
@@ -156,7 +157,7 @@ if __name__ == "__main__":
         )
         EARunner(ea_runner_settings).start()
 
-    finishing_at_string = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    finishing_at_string = pendulum.now(tz=local_tz).strftime("%d/%m/%Y %H:%M:%S")
     logger.info(f'Process ended at: {finishing_at_string}')
 
     client.commandExecute('logout')
