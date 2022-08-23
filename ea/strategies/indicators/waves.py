@@ -3,7 +3,6 @@ import pandas as pd
 import plotly.graph_objects as go
 from pandas import DataFrame
 from plotly.subplots import make_subplots
-from xtb.wrapper.chart_last_request import ChartLastRequest
 
 
 class Waves:
@@ -217,10 +216,6 @@ class Waves:
         fig.layout.yaxis2.showgrid = False
 
         fig.show()
-
-    @staticmethod
-    def collect_from_api(client, symbol, period) -> DataFrame:
-        return ChartLastRequest(client).collect_from_api(symbol, period)
 
     def run_scenario(self, dataframe, symbol, plot_func=None) -> DataFrame:
         result_df = self.analyze(dataframe)
