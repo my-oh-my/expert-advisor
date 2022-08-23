@@ -35,8 +35,10 @@ class ExpertAdvisor:
         return result[['date_time', 'open', 'close', 'high', 'low', 'volume']]
 
     def from_api(self, drop_non_closed_candle: bool) -> DataFrame:
-        raw_dataframe = ChartLastRequest(self.settings.client)\
-            .collect_from_api(self.settings.symbol, self.settings.period)
+        raw_data = ChartLastRequest(self.settings.client)\
+            .request_candle_history_with_limit(self.settings.symbol, self.settings.period)
+
+        raw_dataframe = DataFrame(raw_data)
 
         return self.initial_processing(raw_dataframe, drop_non_closed_candle)
 
