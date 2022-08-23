@@ -7,7 +7,6 @@ from xtb.wrapper.xtb_client import APIClient, loginCommand
 
 from ea.backtesting.backtesting import Backtest
 from ea.backtesting.consolidationbacktest import ConsolidationBacktest
-from ea.backtesting.wavesbacktest import WavesBacktest
 from ea.strategies.indicators.consolidation import Consolidation
 from ea.strategies.indicators.waves import Waves
 from ea.trading.expert_advisor import ExpertAdvisorSettings, ExpertAdvisor
@@ -322,22 +321,22 @@ class Tester:
 
         return result
 
-    def run_scenario(self, dataframe, backtest_provider: Backtest = None, plot_func=None) -> DataFrame:
+    def run_scenario(self, dataframe, backtest_provider: Backtest = None, output_file: str = None, plot_func=None) -> DataFrame:
         scenario_name = self._strategy.settings['scenario_name']
 
         if backtest_provider is not None:
-            backtest_provider.run_backtest(scenario_name, dataframe)
+            backtest_provider.run_backtest(scenario_name, dataframe, output_file)
 
         if plot_func is not None:
             plot_func(scenario_name, dataframe)
 
         return dataframe
 
-    def start(self, dataframe=None, backtest_provider: Backtest = None, plot=None):
+    def start(self, dataframe=None, backtest_provider: Backtest = None, output_file: str = None, plot=None):
         if dataframe is None:
             result = self.from_api(self._strategy.run_scenario, backtest_provider, plot)
         else:
-            result = self.run_scenario(dataframe, backtest_provider, plot)
+            result = self.run_scenario(dataframe, backtest_provider, output_file, plot)
 
         return result
 
@@ -348,14 +347,16 @@ if __name__ == "__main__":
     parser.add_argument('--password', type=str, required=False)
     args = parser.parse_args()
 
+    backtest_output_file = '/Users/me/Desktop/Temp/US500.csv'
+
     waves_scenario_list = [
         (symbol, period, distance)
-        for symbol in ['W20']
-        # for period in [15, 30, 60]
-        # for distance in [50, 75, 100]
+        for symbol in ['US500']
+        for period in [5, 15]
+        for distance in [20, 30, 40, 50, 60, 70]
         # for symbol in ['US500']
-        for period in [60]  # , 15, 30]
-        for distance in [50]
+        # for period in [5]  # , 15, 30]
+        # for distance in [30]
     ]
     for _, element_from_outer in enumerate(waves_scenario_list):
         symbol = element_from_outer[0]
@@ -370,21 +371,18 @@ if __name__ == "__main__":
             distance=distance
         )
         waves_strategy = Waves(waves_settings)
-        # from_waves_df = waves_strategy.analyze(prepare('/Users/me/Desktop/Temp/wig20.txt'))
-        waves_backtest_settings = dict()
-        waves_backtest = WavesBacktest(waves_backtest_settings)
-        from_waves_df = Tester(args, waves_strategy).start(backtest_provider=waves_backtest)
+        from_waves_df = Tester(args, waves_strategy).start()
 
         consolidation_scenario_list = [
             (allowed_wave_percent_change, waves_height_quantile, minimum_waves_count, trailing_sl)
-            # for allowed_wave_percent_change in [0.1, 0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 1.25, 1.50, 1.75, 2.0]
-            # for waves_height_quantile in [0.5, 0.6, 0.7, 0.8, 0.9]
-            # for minimum_waves_count in [5, 6, 7, 8]
-            # for trailing_sl in [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
-            for allowed_wave_percent_change in [1.75]
-            for waves_height_quantile in [0.9]
-            for minimum_waves_count in [5]
-            for trailing_sl in [200]
+            for allowed_wave_percent_change in [0.1, 0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 1.25, 1.50, 1.75, 2.0]
+            for waves_height_quantile in [0.5, 0.6, 0.7, 0.8, 0.9]
+            for minimum_waves_count in [5, 6, 7, 8]
+            for trailing_sl in [10, 20, 30, 40, 50, 60]
+            # for allowed_wave_percent_change in [1.0]
+            # for waves_height_quantile in [0.8]
+            # for minimum_waves_count in [5]
+            # for trailing_sl in [10]
         ]
         for _, element_from_inner in enumerate(consolidation_scenario_list):
             allowed_wave_percent_change = element_from_inner[0]
@@ -410,5 +408,6 @@ if __name__ == "__main__":
                 Tester(args, consolidation_strategy).start(
                     consolidation_df,
                     consolidation_backtest,
-                    consolidation_strategy.plot_chart
+                    backtest_output_file
+                    # plot=consolidation_strategy.plot_chart
                 )
