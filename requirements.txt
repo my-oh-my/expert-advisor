@@ -1,3 +1,4 @@
+git+https://github.com/my-oh-my/xtbwrapper.git#egg=xtbwrapper
 numpy
 pandas
 pendulum
