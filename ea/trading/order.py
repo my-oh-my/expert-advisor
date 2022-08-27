@@ -82,7 +82,3 @@ class OrderWrapper(Order):
                 "volume": self.volume
             }
         }
-
-    @staticmethod
-    def get_tradeTransactionStatus_arguments(order_number: int) -> dict:
-        return {"order": order_number}

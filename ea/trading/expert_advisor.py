@@ -46,19 +46,37 @@ class ExpertAdvisor:
     def get_current_trade_market(cmd: int):
         return 'bullish' if cmd in [OrderMode.BUY.value, OrderMode.BUY_LIMIT.value, OrderMode.BUY_STOP.value] else 'bearish'
 
+    def get_symbol(self):
+        command_arguments = {"symbol": self.settings.symbol}
+        get_symbol_resp = self.settings.client.commandExecute("getSymbol", command_arguments)
+        return get_symbol_resp['returnData']
+
+    def get_expiration(self, current_time):
+        waiting_candles_limit = 3
+        time_long_to_wait = waiting_candles_limit * self.settings.period * 60 * 1000
+        return current_time + time_long_to_wait
+
     def prepare_order(self, order_input: dict) -> OrderWrapper:
-        # order is about to be executed
+        get_symbol_resp = self.get_symbol()
+
         order_type = OrderType.OPEN.value
-        order_mode = OrderMode.BUY.value if order_input['market'] == 'bullish' else OrderMode.SELL.value
-        price = order_input['open_position_price_candidate']
+        order_mode = OrderMode.BUY_STOP.value if order_input['market'] == 'bullish' else OrderMode.SELL_STOP.value
+        forward_price_factor = get_symbol_resp['precision'] * 10
+        price = get_symbol_resp['ask'] + forward_price_factor \
+            if order_input['market'] == 'bullish' \
+            else get_symbol_resp['bid'] - forward_price_factor
+
         symbol = self.settings.symbol
-        stop_loss = order_input['recent_consolidation_mid']
+        stop_loss = round(order_input['recent_consolidation_mid'], get_symbol_resp['precision'])
+
+        expiration = self.get_expiration(get_symbol_resp['time'])
 
         return OrderWrapper(
             order_type=order_type,
             order_mode=order_mode,
             price=price,
             symbol=symbol,
+            expiration=expiration,
             stop_loss=stop_loss
         )
 
@@ -79,11 +97,18 @@ class ExpertAdvisor:
 
         return trade_transaction_resp["returnData"]["order"]
 
-    def check_order_status(self, order: OrderWrapper, open_order_callable):
+    def check_order_status(self, order: OrderWrapper, open_order_callable, attempt):
+        logger.info(f"Attempting to open order, attempt no: {attempt}")
         order_number = open_order_callable(order)
-        command_arguments = OrderWrapper.get_tradeTransactionStatus_arguments(order_number)
 
-        return self.settings.client.commandExecute("tradeTransactionStatus", command_arguments)
+        command_arguments = {"order": order_number}
+        trade_transaction_status_resp = self.settings.client.commandExecute("tradeTransactionStatus", command_arguments)
+        request_status = trade_transaction_status_resp['returnData']['requestStatus']
+        next_attempt = attempt + 1
+        if (request_status == 3) | (next_attempt == 4):
+            return trade_transaction_status_resp
+        else:
+            self.check_order_status(order, open_order_callable, next_attempt)
 
     def get_symbol_trades(self, response: dict):
         return [trade for trade in response if trade['symbol'] == self.settings.symbol]
@@ -102,7 +127,7 @@ class ExpertAdvisor:
         return trades[0] if len(trades) != 0 else None
 
     def open_order_on_signal(self, order_input: dict, prepare_order_callable, open_order_callable):
-        return self.check_order_status(prepare_order_callable(order_input), open_order_callable)
+        return self.check_order_status(prepare_order_callable(order_input), open_order_callable, 1)
 
     def get_candidate_stop_loss(self):
         pass
