@@ -71,9 +71,10 @@ class EARunner:
             logger.info(f'Order modification')
             current_stop_loss = current_trade['sl']
             current_trade_market = ea.get_current_trade_market(current_trade['cmd'])
-            candidate_stop_loss = max([since_last_open_position['high'].max() - trailing_sl, current_stop_loss])  \
+            calculated_stop_loss = max([since_last_open_position['high'].max() - trailing_sl, current_stop_loss])  \
                 if current_trade_market == 'bullish' \
                 else min([since_last_open_position['low'].min() + trailing_sl, current_stop_loss])
+            candidate_stop_loss = round(calculated_stop_loss, current_trade['digits'])
             if current_stop_loss != candidate_stop_loss:
                 logger.info(f'Modifying order with SL at: {candidate_stop_loss}')
                 modified_order = OrderWrapper(
@@ -88,7 +89,6 @@ class EARunner:
         elif len(since_last_open_position) == 1:
             logger.info(f'Order opening')
             order_input = since_last_open_position.iloc[0].to_dict()
-            order_input['open_position_price_candidate'] = order_input['close']
             logger.info(ea.open_order_on_signal(order_input, ea.prepare_order, ea.execute_tradeTransaction))
         else:
             logger.info(f'No signal')
