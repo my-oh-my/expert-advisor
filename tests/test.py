@@ -2,6 +2,7 @@ import argparse
 from datetime import datetime
 
 import pandas as pd
+import pendulum
 from pandas import DataFrame
 from xtb.wrapper.xtb_client import APIClient, loginCommand
 
@@ -281,47 +282,38 @@ def prepare(filename) -> DataFrame:
     return df[['symbol', 'timestamp', 'open', 'close', 'high', 'low', 'volume']]
 
 
+def from_api(user_id, password, symbol, period):
+    print("Executing from_api")
+    client = APIClient()
+    loginResponse = client.execute(loginCommand(userId=user_id, password=password))
+
+    result = None
+    if not loginResponse['status']:
+        print('Login failed. Error code: {0}'.format(loginResponse['errorCode']))
+    else:
+        local_tz = pendulum.timezone('Europe/Warsaw')
+        run_at = pendulum.now(tz=local_tz)
+        ea_settings = ExpertAdvisorSettings(
+            client=client,
+            symbol=symbol,
+            period=period,
+            run_at=run_at
+        )
+        ea = ExpertAdvisor(ea_settings)
+        result = ea.from_api()
+
+    client.commandExecute('logout')
+    client.disconnect()
+
+    return result
+
+
 class Tester:
     def __init__(self, args, strategy):
         self._args = args
         self._strategy = strategy
 
-    def from_api(self, collect_func, backtest_provider: Backtest = None, plot_func=None):
-        user_id = self._args.user_id
-        password = self._args.password
-
-        client = APIClient()
-        # connect to RR socket, login
-        loginResponse = client.execute(loginCommand(userId=user_id, password=password))
-
-        result = None
-        if not loginResponse['status']:
-            print('Login failed. Error code: {0}'.format(loginResponse['errorCode']))
-        else:
-            settings = self._strategy.settings
-            symbol = settings['symbol']
-            period = settings['period']
-            scenario_name = self._strategy.settings['scenario_name']
-
-            ea_settings = ExpertAdvisorSettings(
-                client=client,
-                symbol=symbol,
-                period=period,
-                run_at=None
-            )
-            ea = ExpertAdvisor(ea_settings)
-            from_api_df = ea.from_api(drop_non_closed_candle=False)
-            result = collect_func(from_api_df, symbol, plot_func)
-
-            if backtest_provider is not None:
-                backtest_provider.run_backtest(scenario_name, result)
-
-        client.commandExecute('logout')
-        client.disconnect()
-
-        return result
-
-    def run_scenario(self, dataframe, backtest_provider: Backtest = None, output_file: str = None, plot_func=None) -> DataFrame:
+    def analyze(self, dataframe, backtest_provider: Backtest = None, output_file: str = None, plot_func=None):
         scenario_name = self._strategy.settings['scenario_name']
 
         if backtest_provider is not None:
@@ -330,16 +322,6 @@ class Tester:
         if plot_func is not None:
             plot_func(scenario_name, dataframe)
 
-        return dataframe
-
-    def start(self, dataframe=None, backtest_provider: Backtest = None, output_file: str = None, plot=None):
-        if dataframe is None:
-            result = self.from_api(self._strategy.run_scenario, backtest_provider, plot)
-        else:
-            result = self.run_scenario(dataframe, backtest_provider, output_file, plot)
-
-        return result
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -347,67 +329,75 @@ if __name__ == "__main__":
     parser.add_argument('--password', type=str, required=False)
     args = parser.parse_args()
 
-    backtest_output_file = '/Users/me/Desktop/Temp/US500.csv'
+    backtest_output_file = '/Users/me/Desktop/Temp/Test.csv'
 
-    waves_scenario_list = [
-        (symbol, period, distance)
-        for symbol in ['US500']
+    metadata = [
+        (symbol, period)
+        for symbol in ['W20']
         for period in [5, 15]
-        for distance in [20, 30, 40, 50, 60, 70]
-        # for symbol in ['US500']
-        # for period in [5]  # , 15, 30]
-        # for distance in [30]
     ]
-    for _, element_from_outer in enumerate(waves_scenario_list):
-        symbol = element_from_outer[0]
-        period = element_from_outer[1]
-        distance = element_from_outer[2]
-        scenario_name = f'{symbol}-{period}-{distance}'
-        #
-        waves_settings = dict(
-            scenario_name=scenario_name,
-            symbol=symbol,
-            period=period,
-            distance=distance
-        )
-        waves_strategy = Waves(waves_settings)
-        from_waves_df = Tester(args, waves_strategy).start()
+    for _, inputs in enumerate(metadata):
+        symbol = inputs[0]
+        period = inputs[1]
 
-        consolidation_scenario_list = [
-            (allowed_wave_percent_change, waves_height_quantile, minimum_waves_count, trailing_sl)
-            for allowed_wave_percent_change in [0.1, 0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 1.25, 1.50, 1.75, 2.0]
-            for waves_height_quantile in [0.5, 0.6, 0.7, 0.8, 0.9]
-            for minimum_waves_count in [5, 6, 7, 8]
-            for trailing_sl in [10, 20, 30, 40, 50, 60]
-            # for allowed_wave_percent_change in [1.0]
-            # for waves_height_quantile in [0.8]
-            # for minimum_waves_count in [5]
-            # for trailing_sl in [10]
+        raw_data = from_api(args.user_id, args.password, symbol, period)
+
+        waves_scenario_list = [
+            (symbol, period, distance)
+            for symbol in ['US500']
+            for period in [5, 15]
+            for distance in [20, 30, 40, 50, 60, 70]
+            # for symbol in ['US500']
+            # for period in [5]  # , 15, 30]
+            # for distance in [30]
         ]
-        for _, element_from_inner in enumerate(consolidation_scenario_list):
-            allowed_wave_percent_change = element_from_inner[0]
-            waves_height_quantile = element_from_inner[1]
-            minimum_waves_count = element_from_inner[2]
-            trailing_sl = element_from_inner[3]
-            scenario_name = f'{symbol}-{period}-{distance}-{allowed_wave_percent_change}-{waves_height_quantile}-{minimum_waves_count}-{trailing_sl}'
-            consolidation_settings = dict(
+        for _, element_from_outer in enumerate(waves_scenario_list):
+            distance = element_from_outer[2]
+            scenario_name = f'{symbol}-{period}-{distance}'
+            #
+            waves_settings = dict(
                 scenario_name=scenario_name,
                 symbol=symbol,
                 period=period,
-                allowed_wave_percent_change=allowed_wave_percent_change,
-                waves_height_quantile=waves_height_quantile,
-                minimum_waves_count=minimum_waves_count,
-                trailing_sl=trailing_sl
+                distance=distance
             )
-            consolidation_strategy = Consolidation(consolidation_settings)
-            consolidation_df = consolidation_strategy.analyze(
-                from_waves_df
-            )
-            if not consolidation_df.empty:
-                consolidation_backtest = ConsolidationBacktest(dict(trailing_sl=trailing_sl))
-                Tester(args, consolidation_strategy).start(
-                    consolidation_df,
-                    consolidation_backtest,
-                    backtest_output_file
-                    # plot=consolidation_strategy.plot_chart
+            waves_df = Waves(waves_settings).analyze(raw_data)
+
+            consolidation_scenario_list = [
+                (allowed_wave_percent_change, waves_height_quantile, minimum_waves_count, trailing_sl)
+                for allowed_wave_percent_change in [0.1, 0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 1.25, 1.50, 1.75, 2.0]
+                for waves_height_quantile in [0.5, 0.6, 0.7, 0.8, 0.9]
+                for minimum_waves_count in [5, 6, 7, 8]
+                for trailing_sl in [10, 20, 30, 40, 50, 60]
+                # for allowed_wave_percent_change in [1.0]
+                # for waves_height_quantile in [0.8]
+                # for minimum_waves_count in [5]
+                # for trailing_sl in [10]
+            ]
+            for _, element_from_inner in enumerate(consolidation_scenario_list):
+                allowed_wave_percent_change = element_from_inner[0]
+                waves_height_quantile = element_from_inner[1]
+                minimum_waves_count = element_from_inner[2]
+                trailing_sl = element_from_inner[3]
+                scenario_name = f'{symbol}-{period}-{distance}-{allowed_wave_percent_change}-{waves_height_quantile}-{minimum_waves_count}-{trailing_sl}'
+                consolidation_settings = dict(
+                    scenario_name=scenario_name,
+                    symbol=symbol,
+                    period=period,
+                    allowed_wave_percent_change=allowed_wave_percent_change,
+                    waves_height_quantile=waves_height_quantile,
+                    minimum_waves_count=minimum_waves_count,
+                    trailing_sl=trailing_sl
                 )
+                consolidation_strategy = Consolidation(consolidation_settings)
+                consolidation_df = consolidation_strategy.analyze(
+                    waves_df
+                )
+                if not consolidation_df.empty:
+                    consolidation_backtest = ConsolidationBacktest(dict(trailing_sl=trailing_sl))
+                    Tester(args, consolidation_strategy).analyze(
+                        consolidation_df,
+                        consolidation_backtest,
+                        backtest_output_file
+                        # plot=consolidation_strategy.plot_chart
+                    )

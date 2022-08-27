@@ -24,17 +24,19 @@ class ExpertAdvisor:
 
     def process_non_closed_candle(self, dataframe: DataFrame, current_run_time: datetime) -> DataFrame:
         current_candle_open = dataframe.iloc[-1]['date_time']
-        current_candle_end = current_candle_open + timedelta(minutes=self.settings.period)
+        tz_current_candle_open = current_candle_open.tz_localize(tz='Europe/Warsaw')
+        dt_current_candle_open = tz_current_candle_open.to_pydatetime(current_candle_open)
+        dt_current_candle_end = dt_current_candle_open + timedelta(minutes=self.settings.period)
 
-        return dataframe.iloc[:-1] if current_candle_open < current_run_time < current_candle_end else dataframe
+        return dataframe.iloc[:-1] if dt_current_candle_open < current_run_time < dt_current_candle_end else dataframe
 
     def initial_processing(self, dataframe: DataFrame, drop_non_closed_candle: bool) -> DataFrame:
         dataframe['date_time'] = dataframe["timestamp"].map(lambda value: datetime.fromtimestamp(int(value)))
-        result = dataframe if not drop_non_closed_candle else self.process_non_closed_candle(dataframe, self.settings.run_at)
+        result = self.process_non_closed_candle(dataframe, self.settings.run_at) if drop_non_closed_candle else dataframe
 
         return result[['date_time', 'open', 'close', 'high', 'low', 'volume']]
 
-    def from_api(self, drop_non_closed_candle: bool) -> DataFrame:
+    def from_api(self, drop_non_closed_candle: bool = True) -> DataFrame:
         raw_data = ChartLastRequest(self.settings.client)\
             .request_candle_history_with_limit(self.settings.symbol, self.settings.period)
 
