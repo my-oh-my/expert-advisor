@@ -63,7 +63,7 @@ class ExpertAdvisor:
 
         order_type = OrderType.OPEN.value
         order_mode = OrderMode.BUY_STOP.value if order_input['market'] == 'bullish' else OrderMode.SELL_STOP.value
-        forward_price_factor = get_symbol_resp['precision'] * 10
+        forward_price_factor = get_symbol_resp['tickSize'] * 10
         price = get_symbol_resp['ask'] + forward_price_factor \
             if order_input['market'] == 'bullish' \
             else get_symbol_resp['bid'] - forward_price_factor
