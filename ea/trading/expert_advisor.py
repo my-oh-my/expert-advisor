@@ -105,6 +105,7 @@ class ExpertAdvisor:
 
         command_arguments = {"order": order_number}
         trade_transaction_status_resp = self.settings.client.commandExecute("tradeTransactionStatus", command_arguments)
+        logger.info(trade_transaction_status_resp)
         request_status = trade_transaction_status_resp['returnData']['requestStatus']
         next_attempt = attempt + 1
         if (request_status == 3) | (next_attempt == 4):
