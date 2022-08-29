@@ -1,4 +1,6 @@
 import argparse
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import as_completed
 from datetime import datetime
 
 import pandas as pd
@@ -309,18 +311,32 @@ def from_api(user_id, password, symbol, period):
 
 
 class Tester:
-    def __init__(self, args, strategy):
-        self._args = args
-        self._strategy = strategy
+    def __init__(self, settings):
+        self.settings = settings
 
     def analyze(self, dataframe, backtest_provider: Backtest = None, output_file: str = None, plot_func=None):
-        scenario_name = self._strategy.settings['scenario_name']
+        scenario_name = self.settings['scenario_name']
 
-        if backtest_provider is not None:
+        if backtest_provider:
             backtest_provider.run_backtest(scenario_name, dataframe, output_file)
 
-        if plot_func is not None:
+        if plot_func:
             plot_func(scenario_name, dataframe)
+
+
+def run_scenario(waves_df, scenario):
+    allowed_wave_percent_change = scenario[1][0]
+    waves_height_quantile = scenario[1][1]
+    minimum_waves_count = scenario[1][2]
+    trailing_sl = scenario[1][3]
+    consolidation_settings = dict(
+        allowed_wave_percent_change=allowed_wave_percent_change,
+        waves_height_quantile=waves_height_quantile,
+        minimum_waves_count=minimum_waves_count,
+        trailing_sl=trailing_sl
+    )
+    consolidation_strategy = Consolidation(consolidation_settings)
+    return consolidation_strategy.analyze(waves_df), scenario
 
 
 if __name__ == "__main__":
@@ -329,12 +345,12 @@ if __name__ == "__main__":
     parser.add_argument('--password', type=str, required=False)
     args = parser.parse_args()
 
-    backtest_output_file = '/Users/me/Desktop/Temp/Test.csv'
+    backtest_output_file = '/Users/me/Desktop/Temp/W20.csv'
 
     metadata = [
         (symbol, period)
         for symbol in ['W20']
-        for period in [5, 15]
+        for period in [5]
     ]
     for _, inputs in enumerate(metadata):
         symbol = inputs[0]
@@ -342,17 +358,7 @@ if __name__ == "__main__":
 
         raw_data = from_api(args.user_id, args.password, symbol, period)
 
-        waves_scenario_list = [
-            (symbol, period, distance)
-            for symbol in ['US500']
-            for period in [5, 15]
-            for distance in [20, 30, 40, 50, 60, 70]
-            # for symbol in ['US500']
-            # for period in [5]  # , 15, 30]
-            # for distance in [30]
-        ]
-        for _, element_from_outer in enumerate(waves_scenario_list):
-            distance = element_from_outer[2]
+        for distance in [20, 30, 40, 50, 60, 70]:
             scenario_name = f'{symbol}-{period}-{distance}'
             #
             waves_settings = dict(
@@ -374,30 +380,26 @@ if __name__ == "__main__":
                 # for minimum_waves_count in [5]
                 # for trailing_sl in [10]
             ]
-            for _, element_from_inner in enumerate(consolidation_scenario_list):
-                allowed_wave_percent_change = element_from_inner[0]
-                waves_height_quantile = element_from_inner[1]
-                minimum_waves_count = element_from_inner[2]
-                trailing_sl = element_from_inner[3]
-                scenario_name = f'{symbol}-{period}-{distance}-{allowed_wave_percent_change}-{waves_height_quantile}-{minimum_waves_count}-{trailing_sl}'
-                consolidation_settings = dict(
-                    scenario_name=scenario_name,
-                    symbol=symbol,
-                    period=period,
-                    allowed_wave_percent_change=allowed_wave_percent_change,
-                    waves_height_quantile=waves_height_quantile,
-                    minimum_waves_count=minimum_waves_count,
-                    trailing_sl=trailing_sl
-                )
-                consolidation_strategy = Consolidation(consolidation_settings)
-                consolidation_df = consolidation_strategy.analyze(
-                    waves_df
-                )
-                if not consolidation_df.empty:
-                    consolidation_backtest = ConsolidationBacktest(dict(trailing_sl=trailing_sl))
-                    Tester(args, consolidation_strategy).analyze(
-                        consolidation_df,
-                        consolidation_backtest,
-                        backtest_output_file
-                        # plot=consolidation_strategy.plot_chart
-                    )
+            scenarios = enumerate(consolidation_scenario_list)
+            with ThreadPoolExecutor(max_workers=6) as pool:
+                futures = [pool.submit(run_scenario, waves_df, scenario) for scenario in scenarios]
+                for future in as_completed(futures):
+                    consolidation_df, scenario = future.result()
+                    if consolidation_df is None:
+                        continue
+                    if not consolidation_df.empty:
+                        allowed_wave_percent_change = scenario[1][0]
+                        waves_height_quantile = scenario[1][1]
+                        minimum_waves_count = scenario[1][2]
+                        trailing_sl = scenario[1][3]
+                        scenario_name = f'{symbol}-{period}-{distance}-{allowed_wave_percent_change}-{waves_height_quantile}-{minimum_waves_count}-{trailing_sl}'
+                        tester_settings = dict(scenario_name=scenario_name)
+
+                        consolidation_backtest = ConsolidationBacktest(dict(trailing_sl=trailing_sl))
+
+                        Tester(tester_settings).analyze(
+                            consolidation_df,
+                            consolidation_backtest,
+                            backtest_output_file
+                            # , plot=consolidation_strategy.plot_chart
+                        )
