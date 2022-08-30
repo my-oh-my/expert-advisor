@@ -62,11 +62,15 @@ class ExpertAdvisor:
         get_symbol_resp = self.get_symbol()
 
         order_type = OrderType.OPEN.value
-        order_mode = OrderMode.BUY_STOP.value if order_input['market'] == 'bullish' else OrderMode.SELL_STOP.value
-        forward_price_factor = get_symbol_resp['tickSize'] * 10
-        price = get_symbol_resp['ask'] + forward_price_factor \
+        order_mode = None
+        if order_input['market'] == 'bullish':
+            order_mode = OrderMode.BUY_LIMIT.value
+        elif order_input['market'] == 'bearish':
+            order_mode = OrderMode.SELL_LIMIT.value
+        price_factor = get_symbol_resp['tickSize'] * 10 * 2
+        price = get_symbol_resp['ask'] - price_factor \
             if order_input['market'] == 'bullish' \
-            else get_symbol_resp['bid'] - forward_price_factor
+            else get_symbol_resp['bid'] + price_factor
 
         symbol = self.settings.symbol
         stop_loss = round(order_input['recent_consolidation_mid'], get_symbol_resp['precision'])
