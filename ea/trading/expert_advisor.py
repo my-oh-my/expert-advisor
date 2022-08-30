@@ -62,11 +62,7 @@ class ExpertAdvisor:
         get_symbol_resp = self.get_symbol()
 
         order_type = OrderType.OPEN.value
-        order_mode = None
-        if order_input['market'] == 'bullish':
-            order_mode = OrderMode.BUY_LIMIT.value
-        elif order_input['market'] == 'bearish':
-            order_mode = OrderMode.SELL_LIMIT.value
+        order_mode = OrderMode.BUY_LIMIT.value if order_input['position_side'] == 'bullish' else OrderMode.SELL_LIMIT.value
         price_factor = get_symbol_resp['tickSize'] * 10 * 2
         price = get_symbol_resp['ask'] - price_factor \
             if order_input['market'] == 'bullish' \
