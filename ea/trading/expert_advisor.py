@@ -7,6 +7,8 @@ from xtb.wrapper.chart_last_request import ChartLastRequest
 from xtb.wrapper.xtb_client import APIClient
 
 from ea.misc.logger import logger
+from ea.trading.backoff import retry
+from ea.trading.exceptions import TransactionStatusException
 from ea.trading.order import OrderMode, OrderType, OrderWrapper
 
 
@@ -68,7 +70,7 @@ class ExpertAdvisor:
         order_type = OrderType.OPEN.value
         order_mode = OrderMode.BUY_LIMIT.value if order_input['position_side'] == 'bullish' else OrderMode.SELL_LIMIT.value
         price = order_input['recent_consolidation_max'] \
-            if order_input['market'] == 'bullish' \
+            if order_input['position_side'] == 'bullish' \
             else order_input['recent_consolidation_min']
 
         get_symbol_resp = self.get_symbol()
@@ -102,19 +104,18 @@ class ExpertAdvisor:
 
         return trade_transaction_resp["returnData"]["order"]
 
-    def check_order_status(self, order: OrderWrapper, open_order_callable, attempt):
-        logger.info(f"Attempting to open order, attempt no: {attempt}")
+    @retry()
+    def check_order_status(self, order: OrderWrapper, open_order_callable):
         order_number = open_order_callable(order)
 
         command_arguments = {"order": order_number}
         trade_transaction_status_resp = self.settings.client.commandExecute("tradeTransactionStatus", command_arguments)
         logger.info(trade_transaction_status_resp)
         request_status = trade_transaction_status_resp['returnData']['requestStatus']
-        next_attempt = attempt + 1
-        if (request_status == 3) | (next_attempt == 4):
-            return trade_transaction_status_resp
-        else:
-            self.check_order_status(order, open_order_callable, next_attempt)
+        if request_status != 3:
+            raise TransactionStatusException(trade_transaction_status_resp['returnData']['message'])
+
+        return request_status
 
     def get_symbol_trades(self, response: dict):
         return [trade for trade in response if trade['symbol'] == self.settings.symbol]
@@ -133,7 +134,7 @@ class ExpertAdvisor:
         return trades[0] if len(trades) != 0 else None
 
     def open_order_on_signal(self, order_input: dict, prepare_order_callable, open_order_callable):
-        return self.check_order_status(prepare_order_callable(order_input), open_order_callable, 1)
+        return self.check_order_status(prepare_order_callable(order_input), open_order_callable)
 
     def get_candidate_stop_loss(self):
         pass
