@@ -54,25 +54,28 @@ class ExpertAdvisor:
         return get_symbol_resp['returnData']
 
     def get_expiration(self, current_time):
-        waiting_candles_limit = 3
-        time_long_to_wait = waiting_candles_limit * self.settings.period * 60 * 1000
+        period = self.settings.period
+        if period < 15:
+            time_long_to_wait = 60 * 60 * 1000
+        elif period < 60:
+            time_long_to_wait = 4 * 60 * 60 * 1000
+        else:
+            time_long_to_wait = 24 * 60 * 60 * 1000
+
         return current_time + time_long_to_wait
 
     def prepare_order(self, order_input: dict) -> OrderWrapper:
-        get_symbol_resp = self.get_symbol()
-
         order_type = OrderType.OPEN.value
         order_mode = OrderMode.BUY_LIMIT.value if order_input['position_side'] == 'bullish' else OrderMode.SELL_LIMIT.value
-        price_factor = get_symbol_resp['tickSize'] * 10 * 2
-        price = get_symbol_resp['ask'] - price_factor \
+        price = order_input['recent_consolidation_max'] \
             if order_input['market'] == 'bullish' \
-            else get_symbol_resp['bid'] + price_factor
+            else order_input['recent_consolidation_min']
 
-        symbol = self.settings.symbol
+        get_symbol_resp = self.get_symbol()
         stop_loss = round(order_input['recent_consolidation_mid'], get_symbol_resp['precision'])
 
         expiration = self.get_expiration(get_symbol_resp['time'])
-
+        symbol = self.settings.symbol
         return OrderWrapper(
             order_type=order_type,
             order_mode=order_mode,
