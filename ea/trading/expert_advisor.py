@@ -104,7 +104,7 @@ class ExpertAdvisor:
 
         return trade_transaction_resp["returnData"]["order"]
 
-    @retry()
+    @retry(TransactionStatusException)
     def check_order_status(self, order: OrderWrapper, open_order_callable):
         order_number = open_order_callable(order)
 
