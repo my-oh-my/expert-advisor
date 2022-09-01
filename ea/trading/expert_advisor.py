@@ -17,6 +17,7 @@ class ExpertAdvisorSettings:
     client: APIClient
     symbol: str
     period: int
+    scenario_name: str
     run_at: datetime
 
 
@@ -120,21 +121,16 @@ class ExpertAdvisor:
 
         return request_status
 
-    def get_symbol_trades(self, response: dict):
-        return [trade for trade in response if trade['symbol'] == self.settings.symbol]
-
     def get_trades(self, opened_only: bool = True, symbol_only: bool = True) -> list[dict]:
         command_arguments = {"openedOnly": opened_only}
         get_trades_resp = self.settings.client.commandExecute("getTrades", command_arguments)
-        return_data = get_trades_resp['returnData']
-        result = self.get_symbol_trades(return_data) if symbol_only else return_data
 
-        return result
+        return get_trades_resp['returnData']
 
-    def get_open_trade(self):
+    def get_open_trade(self, scenario_name: str):
         trades = self.get_trades(opened_only=True)
 
-        return trades if len(trades) != 0 else None
+        return next((item for item in trades if item["customComment"] == scenario_name), None)
 
     def open_order_on_signal(self, order_input: dict, prepare_order_callable, open_order_callable):
         return self.check_order_status(prepare_order_callable(order_input), open_order_callable)

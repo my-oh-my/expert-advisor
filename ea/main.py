@@ -46,6 +46,7 @@ class EARunner:
             client=self._settings.client,
             symbol=self._settings.symbol,
             period=self._settings.period,
+            scenario_name=scenario_name,
             run_at=self._settings.run_at
         )
         ea = ExpertAdvisor(ea_settings)
@@ -75,7 +76,7 @@ class EARunner:
         last_open_position_at = consolidation_df['open_position_at'].max()
         since_last_open_position = consolidation_df[(consolidation_df['date_time'] >= last_open_position_at)]
 
-        current_trade = ea.get_open_trade()
+        current_trade = ea.get_open_trade(scenario_name)
         if current_trade is not None:
             logger.info(f'Order modification')
             current_stop_loss = current_trade['sl']
