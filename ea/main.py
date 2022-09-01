@@ -82,6 +82,7 @@ class EARunner:
                     price=current_trade['open_price'],
                     symbol=current_trade['symbol'],
                     order_type=OrderType.MODIFY.value,
+                    expiration=current_trade['expiration'],
                     order_number=current_trade['order'],
                     stop_loss=candidate_stop_loss
                 )
