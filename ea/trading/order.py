@@ -39,6 +39,7 @@ class Order:
     take_profit: float = 0.0
     volume: float = 0.01
     position: int = None
+    custom_comment: str = ''
 
 
 class OrderWrapper(Order):
@@ -53,7 +54,8 @@ class OrderWrapper(Order):
                  stop_loss: float = 0.0,
                  take_profit: float = 0.0,
                  volume: float = 0.01,
-                 position: int = None):
+                 position: int = None,
+                 custom_comment: str = ''):
         self.order_type = order_type
         self.order_mode = order_mode
         self.price = price
@@ -65,12 +67,13 @@ class OrderWrapper(Order):
         self.take_profit = take_profit
         self.volume = volume
         self.position = position
+        self.custom_comment = custom_comment
 
     def get_tradeTransInfo_arguments(self) -> dict:
         return {
             "tradeTransInfo": {
                 "cmd": self.order_mode,
-                "customComment": "Test",
+                "customComment": self.custom_comment,
                 "expiration": self.expiration,
                 "offset": self.offset,
                 "order": self.order_number,
