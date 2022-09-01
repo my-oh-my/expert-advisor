@@ -29,11 +29,24 @@ class EARunner:
     def __init__(self, settings: EARunnerSettings):
         self._settings = settings
 
+    def get_scenario_name(self):
+        return f'symbol:{self._settings.symbol}-' \
+               f'period:{self._settings.period}-' \
+               f'distance:{self._settings.distance}-' \
+               f'allowed_wave_percent_change:{self._settings.allowed_wave_percent_change}-' \
+               f'waves_height_quantile:{self._settings.waves_height_quantile}-' \
+               f'minimum_waves_count:{self._settings.minimum_waves_count}-' \
+               f'trailing_sl:{self._settings.trailing_sl}'
+
     def start(self):
+        scenario_name = self.get_scenario_name()
+        logger.info(f'Running EA for scenario: {scenario_name}')
+
         ea_settings = ExpertAdvisorSettings(
             client=self._settings.client,
             symbol=self._settings.symbol,
             period=self._settings.period,
+            scenario_name=scenario_name,
             run_at=self._settings.run_at
         )
         ea = ExpertAdvisor(ea_settings)
@@ -47,16 +60,13 @@ class EARunner:
         waves_df = waves_strategy.analyze(raw_dataframe)
 
         # Consolidation
-        allowed_wave_percent_change = self._settings.allowed_wave_percent_change
-        waves_height_quantile = self._settings.waves_height_quantile
-        minimum_waves_count = self._settings.minimum_waves_count
         trailing_sl = self._settings.trailing_sl
         consolidation_settings = dict(
             symbol=self._settings.symbol,
             period=self._settings.period,
-            allowed_wave_percent_change=allowed_wave_percent_change,
-            waves_height_quantile=waves_height_quantile,
-            minimum_waves_count=minimum_waves_count,
+            allowed_wave_percent_change=self._settings.allowed_wave_percent_change,
+            waves_height_quantile=self._settings.waves_height_quantile,
+            minimum_waves_count=self._settings.minimum_waves_count,
             trailing_sl=trailing_sl
         )
         consolidation_strategy = Consolidation(consolidation_settings)
@@ -66,7 +76,7 @@ class EARunner:
         last_open_position_at = consolidation_df['open_position_at'].max()
         since_last_open_position = consolidation_df[(consolidation_df['date_time'] >= last_open_position_at)]
 
-        current_trade = ea.get_open_trade()
+        current_trade = ea.get_open_trade(scenario_name)
         if current_trade is not None:
             logger.info(f'Order modification')
             current_stop_loss = current_trade['sl']
@@ -84,12 +94,14 @@ class EARunner:
                     order_type=OrderType.MODIFY.value,
                     expiration=current_trade['expiration'],
                     order_number=current_trade['order'],
-                    stop_loss=candidate_stop_loss
+                    stop_loss=candidate_stop_loss,
+                    custom_comment=current_trade['customComment']
                 )
                 logger.info(ea.modifyPosition(modified_order))
         elif len(since_last_open_position) == 1:
             logger.info(f'Order opening')
             order_input = since_last_open_position.iloc[0].to_dict()
+            order_input['custom_comment'] = scenario_name
             logger.info(ea.open_order_on_signal(order_input, ea.prepare_order, ea.execute_tradeTransaction))
         else:
             logger.info(f'No signal')
@@ -123,28 +135,12 @@ if __name__ == "__main__":
     minimum_waves_count = args.minimum_waves_count
     trailing_sl = args.trailing_sl
 
-    # symbol = 'W20'
-    # period = 30
-    # distance = 200
-    # allowed_wave_percent_change = 2.0
-    # waves_height_quantile = 0.9
-    # minimum_waves_count = 5
-    # trailing_sl = 60.0
-    #
     client = APIClient()
     loginResponse = client.execute(loginCommand(userId=user_id, password=password))
 
     if not loginResponse['status']:
         logger.error('Login failed. Error code: {0}'.format(loginResponse['errorCode']))
     else:
-        scenario_name = f'symbol:{symbol}-' \
-                        f'period:{period}-' \
-                        f'distance:{distance}-' \
-                        f'allowed_wave_percent_change:{allowed_wave_percent_change}-' \
-                        f'waves_height_quantile:{waves_height_quantile}-' \
-                        f'minimum_waves_count:{minimum_waves_count}-' \
-                        f'trailing_sl:{trailing_sl}'
-        logger.info(f'Running EA for scenario: {scenario_name}')
         ea_runner_settings = EARunnerSettings(
             client,
             symbol,

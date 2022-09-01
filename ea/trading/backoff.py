@@ -8,7 +8,7 @@ def retry(exception, retries=3, backoff_in_seconds=1):
         def wrapper(*args, **kwargs):
             attempt = 1
             while True:
-                logger.info(f"Attempting to open order, attempt no: {attempt}")
+                logger.info(f'Attempting to open order, attempt no: {attempt}')
                 try:
                     return f(*args, **kwargs)
                 except exception:
