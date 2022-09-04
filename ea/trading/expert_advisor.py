@@ -90,7 +90,7 @@ class ExpertAdvisor:
             custom_comment=order_input['custom_comment']
         )
 
-    def execute_tradeTransaction(self, order: OrderWrapper) -> int:
+    def execute_tradeTransaction(self, order: OrderWrapper) -> dict:
         logger.info("Sending order!")
         logger.info(f'cmd/mode: {order.order_mode}')
         logger.info(f'symbol: {order.symbol}')
@@ -106,22 +106,22 @@ class ExpertAdvisor:
         trade_transaction_resp = self.settings.client.commandExecute("tradeTransaction", command_arguments)
         logger.info(trade_transaction_resp)
 
-        return trade_transaction_resp["returnData"]["order"]
+        return trade_transaction_resp["returnData"]
 
     @retry(TransactionStatusException)
-    def check_order_status(self, order: OrderWrapper, open_order_callable):
-        order_number = open_order_callable(order)
+    def check_order_status(self, order: OrderWrapper, open_order_callable) -> dict:
+        order_resp = open_order_callable(order)
+        order_number = order_resp['order']
 
         command_arguments = {"order": order_number}
         trade_transaction_status_resp = self.settings.client.commandExecute("tradeTransactionStatus", command_arguments)
-        logger.info(trade_transaction_status_resp)
         request_status = trade_transaction_status_resp['returnData']['requestStatus']
         if request_status != 3:
             raise TransactionStatusException(trade_transaction_status_resp['returnData']['message'])
 
-        return request_status
+        return trade_transaction_status_resp
 
-    def get_trades(self, opened_only: bool = True, symbol_only: bool = True) -> list[dict]:
+    def get_trades(self, opened_only: bool = True) -> list[dict]:
         command_arguments = {"openedOnly": opened_only}
         get_trades_resp = self.settings.client.commandExecute("getTrades", command_arguments)
 
@@ -132,13 +132,13 @@ class ExpertAdvisor:
 
         return next((item for item in trades if item["customComment"] == scenario_name), None)
 
-    def open_order_on_signal(self, order_input: dict, prepare_order_callable, open_order_callable):
+    def open_order_on_signal(self, order_input: dict, prepare_order_callable, open_order_callable) -> dict:
         return self.check_order_status(prepare_order_callable(order_input), open_order_callable)
 
     def get_candidate_stop_loss(self):
         pass
 
-    def modifyPosition(self, order: OrderWrapper) -> int:
+    def modifyPosition(self, order: OrderWrapper) -> dict:
         return self.execute_tradeTransaction(order)
 
     def _closePosition(self, order: dict) -> int:

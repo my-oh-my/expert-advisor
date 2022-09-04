@@ -3,6 +3,7 @@ numpy
 pandas
 pendulum
 plotly
-tabulate
+requests
 schedule
 setuptools
+tabulate
