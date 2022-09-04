@@ -5,6 +5,7 @@ from datetime import datetime
 import pendulum
 from xtb.wrapper.xtb_client import APIClient, loginCommand
 
+from ea.messaging.slack import SlackService
 from ea.misc.logger import logger
 from ea.strategies.indicators.consolidation import Consolidation
 from ea.strategies.indicators.waves import Waves
@@ -12,9 +13,12 @@ from ea.trading.expert_advisor import ExpertAdvisor, ExpertAdvisorSettings
 from ea.trading.order import OrderWrapper, OrderType
 
 
+import os
+
 @dataclass
 class EARunnerSettings:
     client: APIClient
+    slack: SlackService
     symbol: str
     period: int
     distance: float
@@ -97,12 +101,16 @@ class EARunner:
                     stop_loss=candidate_stop_loss,
                     custom_comment=current_trade['customComment']
                 )
-                logger.info(ea.modifyPosition(modified_order))
+                modification_resp = ea.modifyPosition(modified_order)
+                logger.info(modification_resp)
+                self._settings.slack.send_json(modification_resp)
         elif len(since_last_open_position) == 1:
             logger.info(f'Order opening')
             order_input = since_last_open_position.iloc[0].to_dict()
             order_input['custom_comment'] = scenario_name
-            logger.info(ea.open_order_on_signal(order_input, ea.prepare_order, ea.execute_tradeTransaction))
+            order_resp = ea.open_order_on_signal(order_input, ea.prepare_order, ea.execute_tradeTransaction)
+            logger.info(order_resp)
+            self._settings.slack.send_json(order_resp)
         else:
             logger.info(f'No signal')
 
@@ -141,8 +149,10 @@ if __name__ == "__main__":
     if not loginResponse['status']:
         logger.error('Login failed. Error code: {0}'.format(loginResponse['errorCode']))
     else:
+        slack = SlackService(os.getenv('SLACK_URL'))
         ea_runner_settings = EARunnerSettings(
             client,
+            slack,
             symbol,
             period,
             distance,
