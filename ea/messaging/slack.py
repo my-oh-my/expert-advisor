@@ -8,10 +8,7 @@ class SlackService:
     def __init__(self, url):
         self._url = url
 
-    def send_json(self, message: dict):
-        self.send_text(json.dumps(message))
-
-    def send_text(self, message: str):
+    def send(self, message: str):
         payload = '{"text": "%s"}' % message
         response = requests.post(
             url=self._url,

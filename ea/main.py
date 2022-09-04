@@ -103,14 +103,14 @@ class EARunner:
                 )
                 modification_resp = ea.modifyPosition(modified_order)
                 logger.info(modification_resp)
-                self._settings.slack.send_json(modification_resp)
+                self._settings.slack.send(f'{scenario_name}: {str(modification_resp)}')
         elif len(since_last_open_position) == 1:
             logger.info(f'Order opening')
             order_input = since_last_open_position.iloc[0].to_dict()
             order_input['custom_comment'] = scenario_name
             order_resp = ea.open_order_on_signal(order_input, ea.prepare_order, ea.execute_tradeTransaction)
             logger.info(order_resp)
-            self._settings.slack.send_json(order_resp)
+            self._settings.slack.send(f'{scenario_name}: {str(order_resp)}')
         else:
             logger.info(f'No signal')
 
