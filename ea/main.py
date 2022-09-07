@@ -1,6 +1,8 @@
 import argparse
+import os
 from dataclasses import dataclass
 from datetime import datetime
+from datetime import timedelta
 
 import pendulum
 from xtb.wrapper.xtb_client import APIClient, loginCommand
@@ -12,8 +14,6 @@ from ea.strategies.indicators.waves import Waves
 from ea.trading.expert_advisor import ExpertAdvisor, ExpertAdvisorSettings
 from ea.trading.order import OrderWrapper, OrderType
 
-
-import os
 
 @dataclass
 class EARunnerSettings:
@@ -41,6 +41,15 @@ class EARunner:
                f'waves_height_quantile:{self._settings.waves_height_quantile}-' \
                f'minimum_waves_count:{self._settings.minimum_waves_count}-' \
                f'trailing_sl:{self._settings.trailing_sl}'
+
+    def time_mod(self, time, delta, epoch=None):
+        if epoch is None:
+            epoch = datetime(1970, 1, 1, tzinfo=time.tzinfo)
+        return (time - epoch) % delta
+
+    def time_floor(self, time, delta, epoch=None):
+        mod = self.time_mod(time, delta, epoch)
+        return time - mod
 
     def start(self):
         scenario_name = self.get_scenario_name()
@@ -83,11 +92,16 @@ class EARunner:
         current_trade = ea.get_open_trade(scenario_name)
         if current_trade is not None:
             logger.info(f'Order modification')
+            current_trade_open_time = datetime.fromtimestamp(int(current_trade['open_time'] / 1000))
+            current_trade_open_candle = self.time_floor(current_trade_open_time, timedelta(minutes=self._settings.period))
+            since_current_trade_open_candle = consolidation_df[(consolidation_df['date_time'] >= current_trade_open_candle)]
+
             current_stop_loss = current_trade['sl']
             current_trade_market = ea.get_current_trade_market(current_trade['cmd'])
-            calculated_stop_loss = max([since_last_open_position['high'].max() - trailing_sl, current_stop_loss])  \
+
+            calculated_stop_loss = max([since_current_trade_open_candle['high'].max() - trailing_sl, current_stop_loss])  \
                 if current_trade_market == 'bullish' \
-                else min([since_last_open_position['low'].min() + trailing_sl, current_stop_loss])
+                else min([since_current_trade_open_candle['low'].min() + trailing_sl, current_stop_loss])
             candidate_stop_loss = round(calculated_stop_loss, current_trade['digits'])
             if current_stop_loss != candidate_stop_loss:
                 logger.info(f'Modifying order with SL at: {candidate_stop_loss}')
