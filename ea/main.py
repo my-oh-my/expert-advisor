@@ -136,8 +136,6 @@ if __name__ == "__main__":
     logger.info(f'Process started at: {running_at_string}')
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-u', '--user_id', type=int, required=True)
-    parser.add_argument('-p', '--password', type=str, required=True)
     parser.add_argument('-s', '--symbol', type=str, required=True)
     parser.add_argument('-pd', '--period', type=int, required=True)
     parser.add_argument('-d', '--distance', type=float, required=True)
@@ -147,8 +145,8 @@ if __name__ == "__main__":
     parser.add_argument('-tl', '--trailing_sl', type=float, required=True)
 
     args = parser.parse_args()
-    user_id = args.user_id
-    password = args.password
+    user_id = os.getenv('XTB_API_USER')
+    password = os.getenv('XTB_API_PASSWORD')
     symbol = args.symbol
     period = args.period
     distance = args.distance
