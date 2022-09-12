@@ -4,6 +4,4 @@ pandas
 pendulum
 plotly
 requests
-schedule
 setuptools
-tabulate
