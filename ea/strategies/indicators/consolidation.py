@@ -208,7 +208,6 @@ class Consolidation:
     @staticmethod
     def initial_processing(dataframe: DataFrame) -> DataFrame:
         waves_filtered_df = dataframe[dataframe['market'].notnull()]
-        # waves_filtered_df = waves_filtered_df.reset_index(drop=True)
         selected_fields_df = waves_filtered_df[['market', 'break_time', 'break_value']]
         selected_fields_df['previous_break_value'] = selected_fields_df['break_value'].shift(periods=1)
         ready_to_iterate_df = selected_fields_df[selected_fields_df['previous_break_value'].notnull()]
@@ -237,8 +236,10 @@ class Consolidation:
 
     @staticmethod
     def get_open_position_signals(dataframe: DataFrame) -> DataFrame:
+        # 1. pandas.core.base.DataError: No numeric types to aggregate, using numeric representation instead for expanding aggregation
+        # 2. candle time is UTC based, converting to int (lambda) and back to timestamp with_last_consolidation_end introducing +2 factor: 2 * 60 * 60
         dataframe['recent_consolidation_end'] = dataframe['consolidation_id'] \
-            .apply(lambda x: x.value / 1000000000 if x.value > 0 else 0) \
+            .apply(lambda x: x.value / 1000000000 - (2 * 60 * 60) if x.value > 0 else 0) \
             .expanding(1) \
             .max()
 
