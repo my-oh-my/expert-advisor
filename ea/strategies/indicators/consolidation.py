@@ -267,7 +267,7 @@ class Consolidation:
         numpy_now = np.datetime64('now')
 
         joined['consolidation_break_at'] = np.where(
-            joined['date_time'] >= joined['recent_consolidation_end'],
+            joined['date_time'] > joined['recent_consolidation_end'],
             np.where(
                 (joined['close'] > joined['recent_consolidation_max']) | (joined['close'] < joined['recent_consolidation_min']),
                 joined['date_time'],
@@ -277,7 +277,7 @@ class Consolidation:
         )
 
         joined['position_side'] = np.where(
-            joined['date_time'] >= joined['recent_consolidation_end'],
+            joined['date_time'] > joined['recent_consolidation_end'],
             np.where(
                 joined['close'] > joined['recent_consolidation_max'],
                 'bullish',
