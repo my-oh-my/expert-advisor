@@ -77,8 +77,13 @@ class ExpertAdvisor:
             else get_symbol_resp['bid']
 
         stop_loss = round(order_input['recent_consolidation_mid'], get_symbol_resp['precision'])
-        take_profit_at = order_input['recent_consolidation_max'] + (order_input['recent_consolidation_max'] - order_input['recent_consolidation_min'])
+
+        take_profit_range = (order_input['recent_consolidation_max'] - order_input['recent_consolidation_min'])
+        take_profit_at = order_input['recent_consolidation_max'] + take_profit_range \
+            if order_input['position_side'] == 'bullish' \
+            else order_input['recent_consolidation_min'] - take_profit_range
         take_profit = round(take_profit_at, get_symbol_resp['precision'])
+
         expiration = self.get_expiration(get_symbol_resp['time'])
         symbol = self.settings.symbol
         return OrderWrapper(
