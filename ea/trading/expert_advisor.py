@@ -89,6 +89,7 @@ class ExpertAdvisor:
             expiration=expiration,
             stop_loss=stop_loss,
             take_profit=take_profit,
+            volume=get_symbol_resp['lotMin'],
             custom_comment=order_input['custom_comment']
         )
 
