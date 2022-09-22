@@ -114,6 +114,7 @@ class EARunner:
                     order_number=current_trade['order'],
                     stop_loss=candidate_stop_loss,
                     take_profit=current_trade['tp'],
+                    volume=current_trade['volume'],
                     custom_comment=current_trade['customComment']
                 )
                 modification_resp = ea.modifyPosition(modified_order)
