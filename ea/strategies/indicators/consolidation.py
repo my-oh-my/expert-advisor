@@ -169,7 +169,7 @@ class Consolidation:
             row_df = pd.DataFrame([[break_time, iterator, lower_bound, upper_bound]], columns=columns)
 
             if (iterator == 1) and (len(current_sub_df) != 0):
-                if len(current_sub_df) >= minimum_waves_count:
+                if len(current_sub_df) == minimum_waves_count:
                     with_consolidation_price_ranges_df = self.get_price_ranges(current_sub_df)
                     consolidation_price_ranges_df = pd.concat(
                         [consolidation_price_ranges_df, with_consolidation_price_ranges_df],
@@ -180,12 +180,12 @@ class Consolidation:
             else:
                 current_sub_df = pd.concat([current_sub_df, row_df], axis=0)
 
-        if len(current_sub_df) >= minimum_waves_count:
-            with_consolidation_price_ranges_df = self.get_price_ranges(current_sub_df)
-            consolidation_price_ranges_df = pd.concat(
-                [consolidation_price_ranges_df, with_consolidation_price_ranges_df],
-                axis=0
-            )
+            if len(current_sub_df) == minimum_waves_count:
+                with_consolidation_price_ranges_df = self.get_price_ranges(current_sub_df)
+                consolidation_price_ranges_df = pd.concat(
+                    [consolidation_price_ranges_df, with_consolidation_price_ranges_df],
+                    axis=0
+                )
 
         return pd.merge(
             local_df[['break_time', 'market', 'iterator']], consolidation_price_ranges_df[
@@ -213,7 +213,7 @@ class Consolidation:
         ready_to_iterate_df = selected_fields_df[selected_fields_df['previous_break_value'].notnull()]
         ready_to_iterate_df['height'] = abs(ready_to_iterate_df['break_value'] - ready_to_iterate_df['previous_break_value'])
 
-        return ready_to_iterate_df[::-1]
+        return ready_to_iterate_df
 
     def get_consolidations(self,
                            dataframe: DataFrame,
