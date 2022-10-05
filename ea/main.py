@@ -85,50 +85,60 @@ class EARunner:
         consolidation_strategy = Consolidation(consolidation_settings)
         consolidation_df = consolidation_strategy.analyze(waves_df)
 
-        # single open position at a time
-        last_open_position_at = consolidation_df['open_position_at'].max()
-        since_last_open_position = consolidation_df[(consolidation_df['date_time'] >= last_open_position_at)]
+        recent_consolidation_end_at = consolidation_df['recent_consolidation_end'].max()
+        since_recent_consolidation_end = consolidation_df[(consolidation_df['date_time'] > recent_consolidation_end_at)]
 
-        current_trade = ea.get_open_trade(scenario_name)
-        if current_trade is not None:
-            logger.info(f'Order modification')
-            current_trade_open_time = datetime.fromtimestamp(int(current_trade['open_time'] / 1000))
-            current_trade_open_candle = self.time_floor(current_trade_open_time, timedelta(minutes=self._settings.period))
-            since_current_trade_open_candle = consolidation_df[(consolidation_df['date_time'] >= current_trade_open_candle)]
+        current_trades = ea.get_open_trades(scenario_name)
+        if current_trades is not None:
+            logger.info('Check on trades')
+            # initially placed oposite orders (buy/sell) - expressing the bounds of the consolidation
+            orders_after_execution = [order for order in current_trades if not order['expiration']]
+            if (len(orders_after_execution) == 0):
+                # both trades awaits execution - process is waiting
+                # do nothing
+                logger.info('No trade has been executed - awaiting market move')
 
-            current_stop_loss = current_trade['sl']
-            current_trade_market = ea.get_current_trade_market(current_trade['cmd'])
+            # process active order
+            for order in orders_after_execution:
+                current_trade_open_time = datetime.fromtimestamp(int(since_recent_consolidation_end['open_position_at'].max() / 1000))
+                current_trade_open_candle = self.time_floor(current_trade_open_time, timedelta(minutes=self._settings.period))
+                since_current_trade_open_candle = consolidation_df[(consolidation_df['date_time'] > current_trade_open_candle)]
+                current_stop_loss = order['sl']
+                current_trade_market = ea.get_current_trade_market(order['cmd'])
 
-            calculated_stop_loss = max([since_current_trade_open_candle['high'].max() - trailing_sl, current_stop_loss])  \
-                if current_trade_market == 'bullish' \
-                else min([since_current_trade_open_candle['low'].min() + trailing_sl, current_stop_loss])
-            candidate_stop_loss = round(calculated_stop_loss, current_trade['digits'])
-            if current_stop_loss != candidate_stop_loss:
-                logger.info(f'Modifying order with SL at: {candidate_stop_loss}')
-                modified_order = OrderWrapper(
-                    order_mode=current_trade['cmd'],
-                    price=current_trade['open_price'],
-                    symbol=current_trade['symbol'],
-                    order_type=OrderType.MODIFY.value,
-                    expiration=current_trade['expiration'],
-                    order_number=current_trade['order'],
-                    stop_loss=candidate_stop_loss,
-                    take_profit=current_trade['tp'],
-                    volume=current_trade['volume'],
-                    custom_comment=current_trade['customComment']
-                )
-                modification_resp = ea.modifyPosition(modified_order)
-                logger.info(modification_resp)
-                self._settings.slack.send(f'{scenario_name}: {str(modification_resp)}')
-        elif len(since_last_open_position) == 1:
-            logger.info(f'Order opening')
-            order_input = since_last_open_position.iloc[0].to_dict()
+                calculated_stop_loss = max([since_current_trade_open_candle['high'].max() - trailing_sl, current_stop_loss])  \
+                    if current_trade_market == 'bullish' \
+                    else min([since_current_trade_open_candle['low'].min() + trailing_sl, current_stop_loss])
+                candidate_stop_loss = round(calculated_stop_loss, order['digits'])
+                if current_stop_loss != candidate_stop_loss:
+                    logger.info(f'Modifying order with SL at: {candidate_stop_loss}')
+                    modification_order = OrderWrapper(
+                        order_mode=order['cmd'],
+                        price=order['open_price'],
+                        symbol=order['symbol'],
+                        order_type=OrderType.MODIFY.value,
+                        expiration=order['expiration'],
+                        order_number=order['order'],
+                        stop_loss=candidate_stop_loss,
+                        take_profit=order['tp'],
+                        volume=order['volume'],
+                        custom_comment=order['customComment']
+                    )
+                    modification_resp = ea.modifyPosition(modification_order)
+                    logger.info(modification_resp)
+                    self._settings.slack.send(f'{scenario_name}: {str(modification_resp)}')
+        elif len(since_recent_consolidation_end) == 1:
+            # just after required waves count is matched (1 candle ago)
+            logger.info('Oposite orders placing')
+            order_input = since_recent_consolidation_end.iloc[0].to_dict()
             order_input['custom_comment'] = scenario_name
-            order_resp = ea.open_order_on_signal(order_input, ea.prepare_order, ea.execute_tradeTransaction)
-            logger.info(order_resp)
-            self._settings.slack.send(f'{scenario_name}: {str(order_resp)}')
+            for position_side in list('bearish', 'bullish'):
+                order_input['position_side'] = position_side
+                order_resp = ea.open_order_on_signal(order_input, ea.prepare_order, ea.execute_tradeTransaction)
+                logger.info(order_resp)
+                self._settings.slack.send(f'{scenario_name}: {str(order_resp)}')
         else:
-            logger.info(f'No signal')
+            logger.info('No signal')
 
 
 if __name__ == "__main__":

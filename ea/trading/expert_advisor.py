@@ -71,7 +71,7 @@ class ExpertAdvisor:
         get_symbol_resp = self.get_symbol()
 
         order_type = OrderType.OPEN.value
-        order_mode = OrderMode.BUY_LIMIT.value if order_input['position_side'] == 'bullish' else OrderMode.SELL_LIMIT.value
+        order_mode = OrderMode.BUY_STOP.value if order_input['position_side'] == 'bullish' else OrderMode.SELL_STOP.value
         price = order_input['recent_consolidation_max'] \
             if order_input['position_side'] == 'bullish' \
             else order_input['recent_consolidation_min']
@@ -135,7 +135,7 @@ class ExpertAdvisor:
 
         return get_trades_resp['returnData']
 
-    def get_open_trade(self, scenario_name: str):
+    def get_open_trades(self, scenario_name: str):
         trades = self.get_trades(opened_only=True)
 
         return next((item for item in trades if item["customComment"] == scenario_name), None)
@@ -143,14 +143,5 @@ class ExpertAdvisor:
     def open_order_on_signal(self, order_input: dict, prepare_order_callable, open_order_callable) -> dict:
         return self.check_order_status(prepare_order_callable(order_input), open_order_callable)
 
-    def get_candidate_stop_loss(self):
-        pass
-
     def modifyPosition(self, order: OrderWrapper) -> dict:
         return self.execute_tradeTransaction(order)
-
-    def _closePosition(self, order: dict) -> int:
-        pass
-
-    def run(self):
-        pass
