@@ -1,16 +1,11 @@
-import warnings
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from pandas import DataFrame
-from pandas.core.common import SettingWithCopyWarning
 from plotly.graph_objs import Figure
 from plotly.subplots import make_subplots
-
-warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
-warnings.simplefilter(action="ignore", category=FutureWarning)
 
 
 class Consolidation:
@@ -138,28 +133,20 @@ class Consolidation:
     def get_price_ranges(self, dataframe: DataFrame) -> DataFrame:
         consolidation_id = dataframe.break_time.max()
 
-        dataframe.loc[:, 'consolidation_min'] = dataframe['lower_break'].min()
-        dataframe.loc[:, 'consolidation_max'] = dataframe['upper_break'].max()
-        dataframe.loc[:, 'consolidation_id'] = consolidation_id
+        dataframe['consolidation_min'] = dataframe['lower_break'].min()
+        dataframe['consolidation_max'] = dataframe['upper_break'].max()
+        dataframe['consolidation_id'] = consolidation_id
 
         return dataframe[['break_time', 'iterator', 'consolidation_min', 'consolidation_max', 'consolidation_id']]
 
     def get_consolidations_price_ranges(self, dataframe: DataFrame, minimum_waves_count: int) -> DataFrame:
         local_df = dataframe.copy()
         columns = ['break_time', 'iterator', 'lower_break', 'upper_break']
-        dtypes = np.dtype(
-            [
-                ('break_time', np.datetime64),
-                ('iterator', int),
-                ('lower_bound', float),
-                ('upper_bound', float)
-            ]
-        )
         collection = local_df.to_dict('index')
 
         # divide into pieces
-        consolidation_price_ranges_df = pd.DataFrame(np.empty(0, dtype=dtypes))
-        current_sub_df = pd.DataFrame(np.empty(0, dtype=dtypes))
+        consolidation_price_ranges_df = pd.DataFrame()
+        current_sub_df = pd.DataFrame()
         for key in collection:
             break_time = collection[key]['break_time']
             iterator = collection[key]['iterator']
@@ -208,9 +195,9 @@ class Consolidation:
     @staticmethod
     def initial_processing(dataframe: DataFrame) -> DataFrame:
         waves_filtered_df = dataframe[dataframe['market'].notnull()]
-        selected_fields_df = waves_filtered_df[['market', 'break_time', 'break_value']]
+        selected_fields_df = waves_filtered_df[['market', 'break_time', 'break_value']].copy()
         selected_fields_df['previous_break_value'] = selected_fields_df['break_value'].shift(periods=1)
-        ready_to_iterate_df = selected_fields_df[selected_fields_df['previous_break_value'].notnull()]
+        ready_to_iterate_df = selected_fields_df[selected_fields_df['previous_break_value'].notnull()].copy()
         ready_to_iterate_df['height'] = abs(ready_to_iterate_df['break_value'] - ready_to_iterate_df['previous_break_value'])
 
         return ready_to_iterate_df
@@ -243,12 +230,12 @@ class Consolidation:
             .expanding(1) \
             .max()
 
-        with_last_consolidation_end = dataframe[dataframe['recent_consolidation_end'] > 0]
+        with_last_consolidation_end = dataframe[dataframe['recent_consolidation_end'] > 0].copy()
         with_last_consolidation_end['recent_consolidation_end'] = with_last_consolidation_end['recent_consolidation_end'] \
             .apply(lambda x: datetime.fromtimestamp(int(x)))
 
         aggregated = with_last_consolidation_end \
-            .groupby(['recent_consolidation_end'])['recent_consolidation_end', 'consolidation_min', 'consolidation_max'] \
+            .groupby(['recent_consolidation_end'])[['recent_consolidation_end', 'consolidation_min', 'consolidation_max']] \
             .agg(recent_consolidation_end=('recent_consolidation_end', 'max'),
                  recent_consolidation_min=('consolidation_min', 'max'),
                  recent_consolidation_max=('consolidation_max', 'max')
