@@ -23,7 +23,8 @@ class Consolidation:
     def get_consolidations_time_ranges(self,
                                        dataframe: DataFrame,
                                        allowed_percent_change: float,
-                                       waves_height_quantile: float) -> DataFrame:
+                                       waves_height_quantile: float,
+                                       minimum_waves_count: int) -> DataFrame:
         collection = dataframe.to_dict('index')
 
         wave_height_threshold = self.get_quantile(dataframe['height'], waves_height_quantile)
@@ -83,7 +84,11 @@ class Consolidation:
                             {**collection[key],
                              **{'iterator': iterator, 'lower_bound': lower_bound, 'lower_break': current_break_value}}
                         )
-                        iterator = iterator + 1
+                        if (iterator < minimum_waves_count):
+                            iterator = iterator + 1
+                        else:
+                            upper_bound = 1000000.0
+                            iterator = 1
             if current_market == 'bearish':
                 # check
                 if current_wave_height > wave_height_threshold:
@@ -126,7 +131,11 @@ class Consolidation:
                             {**collection[key],
                              **{'iterator': iterator, 'upper_bound': upper_bound, 'upper_break': current_break_value}}
                         )
-                        iterator = iterator + 1
+                        if (iterator < minimum_waves_count):
+                            iterator = iterator + 1
+                        else:
+                            iterator = 1
+                            lower_bound = 0
 
         return pd.DataFrame(consolidation_info)
 
@@ -174,12 +183,15 @@ class Consolidation:
                     axis=0
                 )
 
-        return pd.merge(
+        with_consolidations_df = pd.merge(
             local_df[['break_time', 'market', 'iterator']], consolidation_price_ranges_df[
                 ['break_time', 'iterator', 'consolidation_min', 'consolidation_max', 'consolidation_id']],
             how='left',
             on=['break_time', 'iterator']
         ) if not consolidation_price_ranges_df.empty else pd.DataFrame()
+        with_consolidations_df.drop_duplicates(subset=['break_time', 'iterator'], keep='first', inplace=True, ignore_index=True)
+
+        return with_consolidations_df
 
     def collect_consolidations(self,
                                dataframe: DataFrame,
@@ -187,7 +199,7 @@ class Consolidation:
                                waves_height_quantile: float,
                                minimum_waves_count: int) -> DataFrame:
         # consolidation with time ranges
-        consolidations_df = self.get_consolidations_time_ranges(dataframe, allowed_percent_change, waves_height_quantile)
+        consolidations_df = self.get_consolidations_time_ranges(dataframe, allowed_percent_change, waves_height_quantile, minimum_waves_count)
         # consolidation with price ranges
         return self.get_consolidations_price_ranges(consolidations_df, minimum_waves_count)
 
