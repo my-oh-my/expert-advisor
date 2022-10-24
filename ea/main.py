@@ -65,14 +65,12 @@ class EARunner:
         ea = ExpertAdvisor(ea_settings)
         raw_dataframe = ea.from_api(drop_non_closed_candle=False)
 
-        data = raw_dataframe[raw_dataframe['date_time'] <= datetime.strptime('2022-10-10 11:30:00', '%Y-%m-%d %H:%M:%S')]
-
         # Waves
         waves_settings = dict(symbol=self._settings.symbol, period=self._settings.period,
                               distance=self._settings.distance)
         waves_strategy = Waves(waves_settings)
 
-        waves_df = waves_strategy.analyze(data)
+        waves_df = waves_strategy.analyze(raw_dataframe)
 
         # Consolidation
         trailing_sl = self._settings.trailing_sl
