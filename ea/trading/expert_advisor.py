@@ -138,7 +138,7 @@ class ExpertAdvisor:
     def get_open_trades(self, scenario_name: str):
         trades = self.get_trades(opened_only=True)
 
-        return next((item for item in trades if item["customComment"] == scenario_name), None)
+        return list((item for item in trades if item["customComment"] == scenario_name))
 
     def open_order_on_signal(self, order_input: dict, prepare_order_callable, open_order_callable) -> dict:
         return self.check_order_status(prepare_order_callable(order_input), open_order_callable)
