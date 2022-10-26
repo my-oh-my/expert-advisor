@@ -88,7 +88,7 @@ class EARunner:
         last_row = consolidation_df.iloc[-1]
 
         current_trades = ea.get_open_trades(scenario_name)
-        if current_trades is not None:
+        if (len(current_trades) != 0):
             logger.info('Check on trades')
             # initially placed oposite orders (buy/sell) - expressing the bounds of the consolidation
             orders_after_execution = [order for order in current_trades if not order['expiration']]
