@@ -72,7 +72,7 @@ class ExpertAdvisor:
 
         order_type = OrderType.OPEN.value
         order_mode = OrderMode.BUY_STOP.value if order_input['position_side'] == 'bullish' else OrderMode.SELL_STOP.value
-        price = order_input['recent_consolidation_max'] \
+        price = order_input['recent_consolidation_max'] + get_symbol_resp['spreadRaw']  \
             if order_input['position_side'] == 'bullish' \
             else order_input['recent_consolidation_min']
 
