@@ -69,20 +69,21 @@ class ExpertAdvisor:
 
     def prepare_order(self, order_input: dict) -> OrderWrapper:
         get_symbol_resp = self.get_symbol()
+        precision = get_symbol_resp['precision']
 
         order_type = OrderType.OPEN.value
         order_mode = OrderMode.BUY_STOP.value if order_input['position_side'] == 'bullish' else OrderMode.SELL_STOP.value
-        price = order_input['recent_consolidation_max'] + get_symbol_resp['spreadRaw']  \
+        price = round(order_input['recent_consolidation_max'] + get_symbol_resp['spreadRaw'], precision)  \
             if order_input['position_side'] == 'bullish' \
             else order_input['recent_consolidation_min']
 
-        stop_loss = round(order_input['recent_consolidation_mid'], get_symbol_resp['precision'])
+        stop_loss = round(order_input['recent_consolidation_mid'], precision)
 
         take_profit_range = (order_input['recent_consolidation_max'] - order_input['recent_consolidation_min'])
         take_profit_at = order_input['recent_consolidation_max'] + take_profit_range \
             if order_input['position_side'] == 'bullish' \
             else order_input['recent_consolidation_min'] - take_profit_range
-        take_profit = round(take_profit_at, get_symbol_resp['precision'])
+        take_profit = round(take_profit_at, precision)
 
         expiration = self.get_expiration(get_symbol_resp['time'])
         symbol = self.settings.symbol
