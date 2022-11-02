@@ -56,16 +56,10 @@ class ExpertAdvisor:
         get_symbol_resp = self.settings.client.commandExecute("getSymbol", command_arguments)
         return get_symbol_resp['returnData']
 
-    def get_expiration(self, current_time):
-        period = self.settings.period
-        if period < 15:
-            time_long_to_wait = 60 * 60 * 1000
-        elif period < 60:
-            time_long_to_wait = 4 * 60 * 60 * 1000
-        else:
-            time_long_to_wait = 24 * 60 * 60 * 1000
-
-        return current_time + time_long_to_wait
+    def get_expiration(self, current_time, consolidation_range):
+        range_to_mili = consolidation_range.days * 1000 * 24 * 60 * 60 + consolidation_range.seconds * 1000
+        half_range = int(range_to_mili / 2)
+        return current_time + half_range
 
     def prepare_order(self, order_input: dict) -> OrderWrapper:
         get_symbol_resp = self.get_symbol()
@@ -85,7 +79,8 @@ class ExpertAdvisor:
             else order_input['recent_consolidation_min'] - take_profit_range
         take_profit = round(take_profit_at, precision)
 
-        expiration = self.get_expiration(get_symbol_resp['time'])
+        consolidation_range = order_input['consolidation_id'] - order_input['consolidation_start']
+        expiration = self.get_expiration(get_symbol_resp['time'], consolidation_range)
         symbol = self.settings.symbol
         return OrderWrapper(
             order_type=order_type,

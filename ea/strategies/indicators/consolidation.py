@@ -140,13 +140,16 @@ class Consolidation:
         return pd.DataFrame(consolidation_info)
 
     def get_price_ranges(self, dataframe: DataFrame) -> DataFrame:
+        consolidation_start = dataframe.break_time.min()
         consolidation_id = dataframe.break_time.max()
 
         dataframe['consolidation_min'] = dataframe['lower_break'].min()
         dataframe['consolidation_max'] = dataframe['upper_break'].max()
+
+        dataframe['consolidation_start'] = consolidation_start
         dataframe['consolidation_id'] = consolidation_id
 
-        return dataframe[['break_time', 'iterator', 'consolidation_min', 'consolidation_max', 'consolidation_id']]
+        return dataframe[['break_time', 'iterator', 'consolidation_min', 'consolidation_max', 'consolidation_start', 'consolidation_id']]
 
     def get_consolidations_price_ranges(self, dataframe: DataFrame, minimum_waves_count: int) -> DataFrame:
         local_df = dataframe.copy()
@@ -185,7 +188,7 @@ class Consolidation:
 
         with_consolidations_df = pd.merge(
             local_df[['break_time', 'market', 'iterator']], consolidation_price_ranges_df[
-                ['break_time', 'iterator', 'consolidation_min', 'consolidation_max', 'consolidation_id']],
+                ['break_time', 'iterator', 'consolidation_min', 'consolidation_max', 'consolidation_start', 'consolidation_id']],
             how='left',
             on=['break_time', 'iterator']
         ) if not consolidation_price_ranges_df.empty else pd.DataFrame()
@@ -228,7 +231,7 @@ class Consolidation:
         )
 
         return pd.merge(
-            dataframe, with_consolidations_df[['break_time', 'market', 'iterator', 'consolidation_min', 'consolidation_max', 'consolidation_id']],
+            dataframe, with_consolidations_df[['break_time', 'market', 'iterator', 'consolidation_min', 'consolidation_max', 'consolidation_start', 'consolidation_id']],
             how='left',
             on=['break_time', 'market']
         ) if not with_consolidations_df.empty else pd.DataFrame()
