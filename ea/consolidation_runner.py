@@ -2,7 +2,6 @@ import argparse
 import os
 from dataclasses import dataclass
 from datetime import datetime
-from datetime import timedelta
 
 import pendulum
 from xtb.wrapper.xtb_client import APIClient, loginCommand
@@ -12,7 +11,7 @@ from ea.misc.logger import logger
 from ea.strategies.indicators.consolidation import Consolidation
 from ea.strategies.indicators.waves import Waves
 from ea.trading.expert_advisor import ExpertAdvisor, ExpertAdvisorSettings
-from ea.trading.order import OrderWrapper, OrderType
+from ea.trading.order import OrderMode, OrderType, OrderWrapper
 
 
 @dataclass
@@ -50,6 +49,43 @@ class EARunner:
     def time_floor(self, time, delta, epoch=None):
         mod = self.time_mod(time, delta, epoch)
         return time - mod
+
+    def get_expiration(self, current_time, consolidation_range):
+        range_to_mili = consolidation_range.days * 1000 * 24 * 60 * 60 + consolidation_range.seconds * 1000
+        half_range = int(range_to_mili / 2)
+        return current_time + half_range
+
+    def prepare_order(self, symbol_info: dict, order_input: dict) -> OrderWrapper:
+        precision = symbol_info['precision']
+
+        order_type = OrderType.OPEN.value
+        order_mode = OrderMode.BUY_STOP.value if order_input['position_side'] == 'bullish' else OrderMode.SELL_STOP.value
+        price = round(order_input['recent_consolidation_max'] + symbol_info['spreadRaw'], precision)  \
+            if order_input['position_side'] == 'bullish' \
+            else order_input['recent_consolidation_min']
+
+        stop_loss = round(order_input['recent_consolidation_mid'], precision)
+
+        take_profit_range = (order_input['recent_consolidation_max'] - order_input['recent_consolidation_min'])
+        take_profit_at = order_input['recent_consolidation_max'] + take_profit_range \
+            if order_input['position_side'] == 'bullish' \
+            else order_input['recent_consolidation_min'] - take_profit_range
+        take_profit = round(take_profit_at, precision)
+
+        consolidation_range = order_input['consolidation_id'] - order_input['consolidation_start']
+        expiration = self.get_expiration(symbol_info['time'], consolidation_range)
+        symbol = self._settings.symbol
+        return OrderWrapper(
+            order_type=order_type,
+            order_mode=order_mode,
+            price=price,
+            symbol=symbol,
+            expiration=expiration,
+            stop_loss=stop_loss,
+            take_profit=take_profit,
+            volume=symbol_info['lotMin'],
+            custom_comment=order_input['custom_comment']
+        )
 
     def start(self):
         scenario_name = self.get_scenario_name()
@@ -130,7 +166,8 @@ class EARunner:
             order_input['custom_comment'] = scenario_name
             for position_side in list(['bearish', 'bullish']):
                 order_input['position_side'] = position_side
-                order_resp = ea.open_order_on_signal(order_input, ea.prepare_order, ea.execute_tradeTransaction)
+                prepared_order = self.prepare_order(ea.get_symbol(), order_input)
+                order_resp = ea.open_order_on_signal(prepared_order, ea.execute_tradeTransaction)
                 logger.info(order_resp)
                 self._settings.slack.send(f'{scenario_name}: {str(order_resp)}')
         else:

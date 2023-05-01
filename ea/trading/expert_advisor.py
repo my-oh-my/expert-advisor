@@ -56,44 +56,6 @@ class ExpertAdvisor:
         get_symbol_resp = self.settings.client.commandExecute("getSymbol", command_arguments)
         return get_symbol_resp['returnData']
 
-    def get_expiration(self, current_time, consolidation_range):
-        range_to_mili = consolidation_range.days * 1000 * 24 * 60 * 60 + consolidation_range.seconds * 1000
-        half_range = int(range_to_mili / 2)
-        return current_time + half_range
-
-    def prepare_order(self, order_input: dict) -> OrderWrapper:
-        get_symbol_resp = self.get_symbol()
-        precision = get_symbol_resp['precision']
-
-        order_type = OrderType.OPEN.value
-        order_mode = OrderMode.BUY_STOP.value if order_input['position_side'] == 'bullish' else OrderMode.SELL_STOP.value
-        price = round(order_input['recent_consolidation_max'] + get_symbol_resp['spreadRaw'], precision)  \
-            if order_input['position_side'] == 'bullish' \
-            else order_input['recent_consolidation_min']
-
-        stop_loss = round(order_input['recent_consolidation_mid'], precision)
-
-        take_profit_range = (order_input['recent_consolidation_max'] - order_input['recent_consolidation_min'])
-        take_profit_at = order_input['recent_consolidation_max'] + take_profit_range \
-            if order_input['position_side'] == 'bullish' \
-            else order_input['recent_consolidation_min'] - take_profit_range
-        take_profit = round(take_profit_at, precision)
-
-        consolidation_range = order_input['consolidation_id'] - order_input['consolidation_start']
-        expiration = self.get_expiration(get_symbol_resp['time'], consolidation_range)
-        symbol = self.settings.symbol
-        return OrderWrapper(
-            order_type=order_type,
-            order_mode=order_mode,
-            price=price,
-            symbol=symbol,
-            expiration=expiration,
-            stop_loss=stop_loss,
-            take_profit=take_profit,
-            volume=get_symbol_resp['lotMin'],
-            custom_comment=order_input['custom_comment']
-        )
-
     def execute_tradeTransaction(self, order: OrderWrapper) -> dict:
         logger.info("Sending order!")
         logger.info(f'cmd/mode: {order.order_mode}')
@@ -136,8 +98,8 @@ class ExpertAdvisor:
 
         return list((item for item in trades if item["customComment"] == scenario_name))
 
-    def open_order_on_signal(self, order_input: dict, prepare_order_callable, open_order_callable) -> dict:
-        return self.check_order_status(prepare_order_callable(order_input), open_order_callable)
+    def open_order_on_signal(self, order: OrderWrapper, open_order_callable) -> dict:
+        return self.check_order_status(order, open_order_callable)
 
     def modifyPosition(self, order: OrderWrapper) -> dict:
         return self.execute_tradeTransaction(order)
