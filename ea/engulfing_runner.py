@@ -47,7 +47,7 @@ class EARunner:
 
     def get_expiration(self, current_time, consolidation_range):
         range_to_mili = consolidation_range.days * 1000 * 24 * 60 * 60 + consolidation_range.seconds * 1000
-        return current_time + range_to_mili
+        return current_time + range_to_mili * 2
 
     def prepare_order(self, symbol_info: dict, order_input: dict) -> OrderWrapper:
         precision = symbol_info['precision']
@@ -106,7 +106,7 @@ class EARunner:
         )
         ea = ExpertAdvisor(ea_settings)
         raw_df = ea.from_api(drop_non_closed_candle=False)
-        engulfing_df = engulfing_strategy.analyze(raw_df[raw_df['date_time'] <= datetime.strptime('2023-05-01 00:00:00', '%Y-%m-%d %H:%M:%S')])
+        engulfing_df = engulfing_strategy.analyze(raw_df)
 
         last_row = engulfing_df.iloc[-1]
 
