@@ -5,3 +5,5 @@ pendulum
 plotly
 requests
 setuptools
+scikit-learn
+argparse
