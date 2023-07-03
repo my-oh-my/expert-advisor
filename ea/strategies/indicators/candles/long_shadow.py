@@ -35,8 +35,8 @@ class LongShadow:
         y = df.close
 
         model = LinearRegression().fit(x, y)
-        coefficients = model.coef_[0]
-        return coefficients[0]
+        coefficient = model.coef_[0]
+        return coefficient
 
     def get_beta_coefficient(self, df):
         return pd.DataFrame([[max(df.date_time), self.calculate_beta_coefficient(df)]], columns=['date_time', 'beta'])
