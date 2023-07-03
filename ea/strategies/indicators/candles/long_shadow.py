@@ -87,9 +87,6 @@ class LongShadow:
         )
         return df
 
-    def get_open_position_signals(dataframe: DataFrame) -> DataFrame:
-        pass
-
     def analyze(self, dataframe: DataFrame) -> DataFrame:
         candle_body_ratio = self.settings['candle_body_ratio']
         candle_height_quantile = self.settings['candle_height_quantile']
