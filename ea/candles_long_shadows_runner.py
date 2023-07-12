@@ -48,8 +48,8 @@ class EARunner:
         return time - mod
 
     def get_expiration(self, current_time):
-        delta = self._settings.period * 4
-        return current_time + timedelta(minutes=delta)
+        delta = self._settings.period * 4 * 600000
+        return current_time + delta
 
     def prepare_order(self, symbol_info: dict, order_input: dict) -> OrderWrapper:
         precision = symbol_info['precision']
@@ -64,9 +64,9 @@ class EARunner:
 
         price_range = (order_input['high'] - order_input['low'])
 
-        stop_loss = round(price - price_range * self._settings.stop_loss_factor, precision) \
+        stop_loss = round(price + price_range * self._settings.stop_loss_factor, precision) \
             if order_input['position_side'] == 'bearish' \
-            else round(price + price_range * self._settings.stop_loss_factor, precision)
+            else round(price - price_range * self._settings.stop_loss_factor, precision)
 
         take_profit_range = price_range * self._settings.take_profit_factor
         take_profit_at = price + take_profit_range \
