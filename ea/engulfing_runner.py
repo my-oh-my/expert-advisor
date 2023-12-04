@@ -2,6 +2,7 @@ import argparse
 import os
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 
 import pendulum
 from xtb.wrapper.xtb_client import APIClient, loginCommand
@@ -9,8 +10,14 @@ from xtb.wrapper.xtb_client import APIClient, loginCommand
 from ea.messaging.slack import SlackService
 from ea.misc.logger import logger
 from ea.strategies.indicators.engulfing import Engulfing
+from ea.strategies.indicators.engulfing_loose import EngulfingLoose
 from ea.trading.expert_advisor import ExpertAdvisor, ExpertAdvisorSettings
 from ea.trading.order import OrderMode, OrderType, OrderWrapper
+
+
+class EngulfingType(Enum):
+    STRICT = 'strict'
+    LOOSE = 'loose'
 
 
 @dataclass
@@ -22,6 +29,7 @@ class EARunnerSettings:
     candles_count: int
     stop_loss_factor: float
     take_profit_factor: float
+    engulfing_type: str
     run_at: datetime
 
 
@@ -34,7 +42,8 @@ class EARunner:
                f'period:{self._settings.period}-' \
                f'candles_count:{self._settings.candles_count}-' \
                f'stop_loss_factor:{self._settings.stop_loss_factor}-' \
-               f'take_profit_factor:{self._settings.take_profit_factor}-'
+               f'take_profit_factor:{self._settings.take_profit_factor}-' \
+               f'engulfing_type:{self._settings.engulfing_type}'
 
     def time_mod(self, time, delta, epoch=None):
         if epoch is None:
@@ -56,16 +65,16 @@ class EARunner:
         order_mode = OrderMode.BUY_STOP.value if order_input['position_side'] == 'bullish' else OrderMode.SELL_STOP.value
         price = round(order_input['recent_high'] + symbol_info['spreadRaw'], precision)  \
             if order_input['position_side'] == 'bullish' \
-            else order_input['recent_low']
+            else round(order_input['recent_low'] - symbol_info['spreadRaw'], precision)
 
         stop_loss = round(order_input['recent_high'] + symbol_info['spreadRaw'], precision)  \
             if order_input['position_side'] == 'bearish' \
-            else order_input['recent_low']
+            else round(order_input['recent_low'] - symbol_info['spreadRaw'], precision)
 
         take_profit_range = (order_input['recent_high'] - order_input['recent_low'])
-        take_profit_at = order_input['recent_high'] + take_profit_range \
+        take_profit_at = order_input['recent_high'] + take_profit_range + symbol_info['spreadRaw'] \
             if order_input['position_side'] == 'bullish' \
-            else order_input['recent_low'] - take_profit_range
+            else order_input['recent_low'] - take_profit_range - symbol_info['spreadRaw']
         take_profit = round(take_profit_at, precision)
 
         consolidation_range = order_input['current_at'] - order_input['recent_consolidation_start']
@@ -95,7 +104,11 @@ class EARunner:
             stop_loss_factor=self._settings.stop_loss_factor,
             take_profit_factor=self._settings.take_profit_factor
         )
-        engulfing_strategy = Engulfing(engulfing_settings)
+
+        if engulfing_type == EngulfingType.STRICT.value:
+            engulfing_strategy = Engulfing(engulfing_settings)
+        if engulfing_type == EngulfingType.LOOSE.value:
+            engulfing_strategy = EngulfingLoose(engulfing_settings)
 
         ea_settings = ExpertAdvisorSettings(
             client=self._settings.client,
@@ -114,7 +127,7 @@ class EARunner:
         if (len(current_trades) != 0):
             logger.info('Already placed orders')
             # self._settings.slack.send(f'{scenario_name}: {str(modification_resp)}')
-        elif last_row['candles_count'] == self._settings.candles_count:
+        elif last_row['is_signal']:
             # just after required engulfing candles count is matched (1 candle ago)
             logger.info('Oposite orders placing')
             order_input = last_row.to_dict()
@@ -141,6 +154,7 @@ if __name__ == "__main__":
     parser.add_argument('-cc', '--candles_count', type=int, required=True)
     parser.add_argument('-slf', '--stop_loss_factor', type=float, required=True)
     parser.add_argument('-tpf', '--take_profit_factor', type=float, required=True)
+    parser.add_argument('-et', '--engulfing_type', type=str, required=False, default=EngulfingType.STRICT.value)
 
     args = parser.parse_args()
     user_id = os.getenv('XTB_API_USER')
@@ -150,6 +164,7 @@ if __name__ == "__main__":
     candles_count = args.candles_count
     stop_loss_factor = args.stop_loss_factor
     take_profit_factor = args.take_profit_factor
+    engulfing_type = args.engulfing_type
 
     client = APIClient()
     loginResponse = client.execute(loginCommand(userId=user_id, password=password))
@@ -166,6 +181,7 @@ if __name__ == "__main__":
             candles_count,
             stop_loss_factor,
             take_profit_factor,
+            engulfing_type,
             run_at
         )
         EARunner(ea_runner_settings).start()
