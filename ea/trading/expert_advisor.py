@@ -93,8 +93,8 @@ class ExpertAdvisor:
 
         return get_trades_resp['returnData']
 
-    def get_open_trades(self, scenario_name: str):
-        trades = self.get_trades(opened_only=True)
+    def get_open_trades(self, scenario_name: str, opened_only=True):
+        trades = self.get_trades(opened_only=opened_only)
 
         return list((item for item in trades if item["customComment"] == scenario_name))
 
