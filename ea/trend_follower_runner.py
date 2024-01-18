@@ -151,13 +151,13 @@ class EARunner:
             run_at=self._settings.run_at
         )
         ea = ExpertAdvisor(ea_settings)
-        raw_df = ea.from_api(drop_non_closed_candle=False)
-        filtered = raw_df.loc[(raw_df['date_time'] <= '2024-01-09')]
 
-        analyzed_df = strategy.analyze(filtered)
+        raw_df = ea.from_api()
+        analyzed_df = strategy.analyze(raw_df)
 
         last_row = analyzed_df.iloc[-1]
         order_input = last_row.to_dict()
+        # TODO - scenario_name + something makes an order unique - effectively letting multiple orders
         order_input['custom_comment'] = scenario_name
         symbol_info = ea.get_symbol()
         precision = symbol_info['precision']
