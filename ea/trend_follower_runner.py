@@ -82,8 +82,10 @@ class EARunner:
         return time - mod
 
     def get_expiration(self, current_time):
+        # whole day plus 5 minutes
+        delta = (60 * 60 * 24 + 5) * 1000
         # add 5 minutes apart from next candle itself
-        delta = (60 * (self._settings.period + 5)) * 1000
+        # delta = (60 * (self._settings.period + 5)) * 1000
 
         return current_time + delta
 
