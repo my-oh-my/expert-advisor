@@ -58,7 +58,7 @@ class TrendFollower:
 
     def get_betas(self, collection: list[dict], beta_extreme_count: int):
         # calculate beta coefficient of the consecutive extremes <current - n, current>
-        beta_elements_count = 5
+        beta_elements_count = beta_extreme_count
         extremes_indices = [element['idx'] for element in collection]
         extremes_sides = [element['side'] for element in collection]
         extremes_values = [element['extreme_value'] for element in collection]
