@@ -213,9 +213,12 @@ class EARunner:
             logger.info('Placing BUY order')
             order_input['position_side'] = 'bullish'
             prepared_order = self.prepare_order(symbol_info, order_input)
-            order_resp = ea.open_order_on_signal(prepared_order, ea.execute_tradeTransaction)
-            logger.info(order_resp)
-            # self._settings.slack.send(f'{scenario_name}: {str(order_resp)}')
+            try:
+                order_resp = ea.open_order_on_signal(prepared_order, ea.execute_tradeTransaction)
+            finally:
+                logger.info(order_resp)
+                self._settings.slack.send(f'{scenario_name}: {str(order_resp)}')
+                raise
         elif (len(open_orders) == 0) \
                 & (last_row['beta_sign'] == -1) \
                 & (last_row['indicator'] < last_row['indicator_lead']):
@@ -223,9 +226,12 @@ class EARunner:
             logger.info('Placing SELL order')
             order_input['position_side'] = 'bearish'
             prepared_order = self.prepare_order(ea.get_symbol(), order_input)
-            order_resp = ea.open_order_on_signal(prepared_order, ea.execute_tradeTransaction)
-            logger.info(order_resp)
-            self._settings.slack.send(f'{scenario_name}: {str(order_resp)}')
+            try:
+                order_resp = ea.open_order_on_signal(prepared_order, ea.execute_tradeTransaction)
+            finally:
+                logger.info(order_resp)
+                self._settings.slack.send(f'{scenario_name}: {str(order_resp)}')
+                raise
         else:
             logger.info('No signal')
 
