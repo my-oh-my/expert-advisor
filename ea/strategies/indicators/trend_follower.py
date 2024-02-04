@@ -2,7 +2,7 @@ from itertools import groupby
 
 import numpy as np
 from pandas import DataFrame
-from scipy.signal import argrelextrema
+from scipy.signal import argrelmin, argrelmax
 
 
 class TrendFollower:
@@ -22,7 +22,8 @@ class TrendFollower:
 
     def get_extremes(self, dataframe: DataFrame, extreme_candles_range: int):
         # Find local extremes
-        minima_idx_dirty = argrelextrema(dataframe['low'].values, comparator=np.less, order=extreme_candles_range)[0]
+        minima_idx_dirty = \
+            argrelmin(dataframe['low'].values, order=extreme_candles_range)[0]
         minima_candidates = [
             dict(
                 idx=idx,
@@ -33,7 +34,7 @@ class TrendFollower:
         ]
 
         maxima_idx_dirty = \
-        argrelextrema(dataframe['high'].values, comparator=np.greater_equal, order=extreme_candles_range)[0]
+            argrelmax(dataframe['high'].values, order=extreme_candles_range)[0]
         maxima_candidates = [
             dict(
                 idx=idx,
