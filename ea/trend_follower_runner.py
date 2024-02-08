@@ -176,7 +176,6 @@ class EARunner:
                 price = self.get_price(order_input['indicator'] + spreadRaw, precision) \
                     if current_trade_market == 'bullish' \
                     else self.get_price(order_input['indicator'], precision)
-                expiration = self.get_expiration(order['expiration'])
                 stop_loss = self.get_stop_loss(
                     current_trade_market,
                     order_input['rolling_n_low'],
@@ -196,7 +195,7 @@ class EARunner:
                     price=price,
                     symbol=self._settings.symbol,
                     order_type=OrderType.MODIFY.value,
-                    expiration=expiration,
+                    expiration=order['expiration'],
                     order_number=order['order'],
                     stop_loss=stop_loss,
                     take_profit=take_profit,
