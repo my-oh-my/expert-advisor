@@ -85,7 +85,7 @@ class ExpertAdvisor:
         if request_status != 3:
             raise TransactionStatusException(trade_transaction_status_resp['returnData']['message'])
 
-        return trade_transaction_status_resp
+        return json.dumps(trade_transaction_status_resp, indent=2)
 
     def get_trades(self, opened_only: bool = True) -> list[dict]:
         command_arguments = {"openedOnly": opened_only}

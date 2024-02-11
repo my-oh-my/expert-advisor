@@ -71,7 +71,6 @@ class EARunner:
 
         return take_profit
 
-
     def time_mod(self, time, delta, epoch=None):
         if epoch is None:
             epoch = datetime(1970, 1, 1, tzinfo=time.tzinfo)
@@ -98,7 +97,7 @@ class EARunner:
             if order_input['beta_sign'] == 1 \
             else OrderMode.SELL_STOP.value
 
-        price = self.get_price(order_input['indicator'] + spreadRaw, precision)  \
+        price = self.get_price(order_input['indicator'] + spreadRaw, precision) \
             if order_input['position_side'] == 'bullish' \
             else self.get_price(order_input['indicator'], precision)
         expiration = self.get_expiration(symbol_info['time'])
@@ -157,6 +156,10 @@ class EARunner:
         raw_df = ea.from_api()
         analyzed_df = strategy.analyze(raw_df)
 
+        # How far from last extreme
+        current_extreme_index = analyzed_df.groupby('current_extreme_on')['current_extreme_on'].idxmin()[-1]
+        since_extreme_index = analyzed_df.index[-1] - current_extreme_index
+
         last_row = analyzed_df.iloc[-1]
         order_input = last_row.to_dict()
         # TODO - scenario_name + something makes an order unique - effectively letting multiple orders
@@ -168,6 +171,8 @@ class EARunner:
         current_trades = ea.get_open_trades(scenario_name, opened_only=False)
         open_orders = [order for order in current_trades if not order['expiration']]
         pending_orders = [order for order in current_trades if order['expiration']]
+        # Modifying Order
+        # PENDING
         if len(pending_orders) != 0:
             for order in pending_orders:
                 logger.info(f"Modifying pending order {order}")
@@ -189,7 +194,6 @@ class EARunner:
                     order_input['rolling_n_high'],
                     precision
                 )
-                # logger.info(f'Modifying order with SL at: {candidate_stop_loss}')
                 modification_order = OrderWrapper(
                     order_mode=order['cmd'],
                     price=price,
@@ -204,10 +208,58 @@ class EARunner:
                 )
                 modification_resp = ea.modifyPosition(modification_order)
                 logger.info(modification_resp)
-                self._settings.slack.send(f'{scenario_name}: {str(modification_resp)}')
+                self._settings.slack.send(
+                    f'Modifying PENDING order {order};'
+                    f'{scenario_name}: '
+                    f'{str(modification_resp)}'
+                )
+        # OPEN
+
+        elif (len(open_orders) != 0):
+            for order in pending_orders:
+                logger.info(f"Modifying open order {order}")
+                current_trade_market = ea.get_current_trade_market(order['cmd'])
+
+                price = self.get_price(order_input['indicator'] + spreadRaw, precision) \
+                    if current_trade_market == 'bullish' \
+                    else self.get_price(order_input['indicator'], precision)
+                stop_loss = self.get_stop_loss(
+                    current_trade_market,
+                    order_input['rolling_n_low'],
+                    order_input['rolling_n_high'],
+                    precision
+                )
+                take_profit = self.get_take_profit(
+                    current_trade_market,
+                    price,
+                    order_input['rolling_n_low'],
+                    order_input['rolling_n_high'],
+                    precision
+                )
+                modification_order = OrderWrapper(
+                    order_mode=order['cmd'],
+                    price=order['price'],
+                    symbol=self._settings.symbol,
+                    order_type=OrderType.MODIFY.value,
+                    expiration=order['expiration'],
+                    order_number=order['order'],
+                    stop_loss=stop_loss,
+                    take_profit=order['tp'],
+                    volume=order['volume'],
+                    custom_comment=order['customComment']
+                )
+                modification_resp = ea.modifyPosition(modification_order)
+                logger.info(modification_resp)
+                self._settings.slack.send(
+                    f'Modifying OPEN order {order};'
+                    f'{scenario_name}: '
+                    f'{str(modification_resp)}'
+                )
+        # Place new orders
         elif (len(open_orders) == 0) \
                 & (last_row['beta_sign'] == 1) \
-                & (last_row['indicator'] > last_row['indicator_lead']):
+                & (last_row['indicator'] >= last_row['indicator_lead']) \
+                & (since_extreme_index == 2):
             # Bullish
             logger.info('Placing BUY order')
             order_input['position_side'] = 'bullish'
@@ -216,11 +268,15 @@ class EARunner:
                 order_resp = ea.open_order_on_signal(prepared_order, ea.execute_tradeTransaction)
             finally:
                 logger.info(order_resp)
-                self._settings.slack.send(f'{scenario_name}: {str(order_resp)}')
+                self._settings.slack.send(
+                    f'Placing BUY order for:{scenario_name}:'
+                    f'{str(order_resp)}'
+                )
                 raise
         elif (len(open_orders) == 0) \
                 & (last_row['beta_sign'] == -1) \
-                & (last_row['indicator'] < last_row['indicator_lead']):
+                & (last_row['indicator'] <= last_row['indicator_lead']) \
+                & (since_extreme_index == 2):
             # Bearish
             logger.info('Placing SELL order')
             order_input['position_side'] = 'bearish'
@@ -229,7 +285,11 @@ class EARunner:
                 order_resp = ea.open_order_on_signal(prepared_order, ea.execute_tradeTransaction)
             finally:
                 logger.info(order_resp)
-                self._settings.slack.send(f'{scenario_name}: {str(order_resp)}')
+                self._settings.slack.send(
+                    f'Placing BUY order for:{scenario_name}:'
+                    f'{str(order_resp)}'
+                )
+                #
                 raise
         else:
             logger.info('No signal')
