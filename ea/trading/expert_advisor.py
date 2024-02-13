@@ -11,6 +11,8 @@ from ea.trading.backoff import retry
 from ea.trading.exceptions import TransactionStatusException
 from ea.trading.order import OrderMode, OrderType, OrderWrapper
 
+import json
+
 
 @dataclass
 class ExpertAdvisorSettings:
