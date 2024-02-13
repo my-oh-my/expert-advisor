@@ -175,8 +175,9 @@ class EARunner:
         # PENDING
         if len(pending_orders) != 0:
             for order in pending_orders:
-                logger.info(f"Modifying pending order {order}")
+                logger.info(f"Modifying PENDING order {order}")
                 current_trade_market = ea.get_current_trade_market(order['cmd'])
+                logger.info(f"Order side {current_trade_market}")
 
                 price = self.get_price(order_input['indicator'] + spreadRaw, precision) \
                     if current_trade_market == 'bullish' \
@@ -217,8 +218,9 @@ class EARunner:
 
         elif (len(open_orders) != 0):
             for order in pending_orders:
-                logger.info(f"Modifying open order {order}")
+                logger.info(f"Modifying OPEN order {order}")
                 current_trade_market = ea.get_current_trade_market(order['cmd'])
+                logger.info(f"Order side {current_trade_market}")
 
                 price = self.get_price(order_input['indicator'] + spreadRaw, precision) \
                     if current_trade_market == 'bullish' \
@@ -286,7 +288,7 @@ class EARunner:
             finally:
                 logger.info(order_resp)
                 self._settings.slack.send(
-                    f'Placing BUY order for:{scenario_name}:'
+                    f'Placing SELL order for:{scenario_name}:'
                     f'{str(order_resp)}'
                 )
                 #
