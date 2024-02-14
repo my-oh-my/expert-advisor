@@ -215,9 +215,8 @@ class EARunner:
                     f'{str(modification_resp)}'
                 )
         # OPEN
-
         elif (len(open_orders) != 0):
-            for order in pending_orders:
+            for order in open_orders:
                 logger.info(f"Modifying OPEN order {order}")
                 current_trade_market = ea.get_current_trade_market(order['cmd'])
                 logger.info(f"Order side {current_trade_market}")
@@ -268,13 +267,14 @@ class EARunner:
             prepared_order = self.prepare_order(symbol_info, order_input)
             try:
                 order_resp = ea.open_order_on_signal(prepared_order, ea.execute_tradeTransaction)
+            except Exception as e:
+                raise
             finally:
                 logger.info(order_resp)
                 self._settings.slack.send(
                     f'Placing BUY order for:{scenario_name}:'
                     f'{str(order_resp)}'
                 )
-                raise
         elif (len(open_orders) == 0) \
                 & (last_row['beta_sign'] == -1) \
                 & (last_row['indicator'] <= last_row['indicator_lead']) \
@@ -285,14 +285,14 @@ class EARunner:
             prepared_order = self.prepare_order(ea.get_symbol(), order_input)
             try:
                 order_resp = ea.open_order_on_signal(prepared_order, ea.execute_tradeTransaction)
+            except Exception as e:
+                raise
             finally:
                 logger.info(order_resp)
                 self._settings.slack.send(
                     f'Placing SELL order for:{scenario_name}:'
                     f'{str(order_resp)}'
                 )
-                #
-                raise
         else:
             logger.info('No signal')
 
