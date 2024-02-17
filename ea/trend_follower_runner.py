@@ -239,7 +239,7 @@ class EARunner:
                 )
                 modification_order = OrderWrapper(
                     order_mode=order['cmd'],
-                    price=order['price'],
+                    price=order['open_price'],
                     symbol=self._settings.symbol,
                     order_type=OrderType.MODIFY.value,
                     expiration=order['expiration'],
