@@ -2,16 +2,13 @@ from dataclasses import dataclass
 from datetime import datetime
 from datetime import timedelta
 
-from pandas import DataFrame
-from xtb.wrapper.chart_last_request import ChartLastRequest
-from xtb.wrapper.xtb_client import APIClient
-
 from ea.misc.logger import logger
 from ea.trading.backoff import retry
 from ea.trading.exceptions import TransactionStatusException
-from ea.trading.order import OrderMode, OrderType, OrderWrapper
-
-import json
+from ea.trading.order import OrderMode, OrderWrapper
+from pandas import DataFrame
+from xtb.wrapper.chart_last_request import ChartLastRequest
+from xtb.wrapper.xtb_client import APIClient
 
 
 @dataclass
@@ -87,7 +84,7 @@ class ExpertAdvisor:
         if request_status != 3:
             raise TransactionStatusException(trade_transaction_status_resp['returnData']['message'])
 
-        return json.dumps(trade_transaction_status_resp, indent=2)
+        return trade_transaction_status_resp
 
     def get_trades(self, opened_only: bool = True) -> list[dict]:
         command_arguments = {"openedOnly": opened_only}
